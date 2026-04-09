@@ -65,7 +65,7 @@ class GameEngine {
             if (this.manualCrash || this.multiplier >= this.crashPoint) {
                 this.crash();
             }
-        }, 100);
+        }, 50);
     }
 
     crash() {
