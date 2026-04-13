@@ -8,7 +8,7 @@ class GameEngine {
         this.crashPoint = 0;
         this.interval = null;
         this.io = null;
-        this.waitingTime = 6000;  // 6 seconds
+        this.waitingTime = 5000;  // 5 seconds
         this.crashedTime = 5000;  // 5 seconds
         this.manualCrash = false;
         this.timeLeft = 0;
