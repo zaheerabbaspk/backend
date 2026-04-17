@@ -1,5 +1,6 @@
 const GameState = require('./GameState');
 const supabase = require('../config/supabase');
+const crypto = require('crypto');
 
 class GameEngine {
     constructor() {
@@ -13,6 +14,8 @@ class GameEngine {
         this.manualCrash = false;
         this.timeLeft = 0;
         this.countdownInterval = null;
+        this.serverSeed = crypto.randomBytes(32).toString('hex');
+        this.nonce = 0;
     }
 
     setIo(io) {
@@ -25,20 +28,38 @@ class GameEngine {
     }
 
     generateCrashPoint() {
-        // Basic RNG for crash point, can be leveled up later
-        const rand = Math.random();
-        if (rand < 0.05) return 1.00; // instant crash
-        return (Math.random() * 5 + 1.2).toFixed(2);
+        // Industry Standard "Provably Fair" Logic
+        this.nonce++;
+        
+        // 1. Create a hash from seed + nonce
+        const hash = crypto.createHmac('sha256', this.serverSeed)
+            .update(this.nonce.toString())
+            .digest('hex');
+
+        // 2. Conver the first 8 characters of the hash to a number
+        const hashInt = parseInt(hash.substring(0, 8), 16);
+        
+        // 3. Logarithmic distribution logic (X = hashInt / 2^32)
+        const rand = hashInt / Math.pow(2, 32);
+        
+        // 4. House Edge (1%)
+        const houseEdge = 0.01; 
+        
+        // 5. Formula: (1 - HouseEdge) / (1 - Random)
+        const multiplier = (1 - houseEdge) / (1 - rand);
+        
+        const result = Math.max(1.00, Math.floor(multiplier * 100) / 100);
+        return result.toFixed(2);
     }
 
     startWaiting() {
         this.state = GameState.WAITING;
         this.multiplier = 1.00;
         this.manualCrash = false;
-        this.crashPoint = this.generateCrashPoint();
+        this.crashPoint = parseFloat(this.generateCrashPoint());
         this.timeLeft = Math.floor(this.waitingTime / 1000);
 
-        console.log(`Round waiting. Next crash point: ${this.crashPoint}`);
+        console.log(`[GameEngine] Round waiting. Next crash point: ${this.crashPoint}`);
 
         this.broadcastState();
 
@@ -56,16 +77,24 @@ class GameEngine {
 
     startRunning() {
         this.state = GameState.RUNNING;
+        this.startTime = Date.now();
         this.broadcastState();
 
+        // Frequency: 30ms for "Buttery Smooth" updates
         this.interval = setInterval(() => {
-            this.multiplier += 0.01;
+            const elapsed = (Date.now() - this.startTime) / 1000;
+            
+            // Exponential Growth Formula: Multiplier = 1.00 * e^(0.06 * seconds)
+            // This mirrors the Spribe experience (takes ~10-12s to hit 2.0x, speeds up later)
+            const newMultiplier = 1.00 * Math.exp(0.06 * elapsed);
+            this.multiplier = Math.floor(newMultiplier * 100) / 100;
+
             this.broadcastMultiplier();
 
             if (this.manualCrash || this.multiplier >= this.crashPoint) {
                 this.crash();
             }
-        }, 50);
+        }, 30);
     }
 
     crash() {
