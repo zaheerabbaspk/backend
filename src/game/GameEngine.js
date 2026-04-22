@@ -85,17 +85,17 @@ class GameEngine {
             const elapsed = (Date.now() - this.startTime) / 1000;
             
             // Exponential Growth Formula: Multiplier = 1.00 * e^(0.06 * seconds)
-            // This mirrors the real game experience (takes ~10-12s to hit 2.0x, speeds up later)
             const newMultiplier = 1.00 * Math.exp(0.06 * elapsed);
-            this.multiplier = Math.floor(newMultiplier * 100) / 100;
+            let calculatedMultiplier = Math.floor(newMultiplier * 100) / 100;
 
-            this.broadcastMultiplier();
-
-            if (this.manualCrash || this.multiplier >= this.crashPoint) {
+            if (this.manualCrash || calculatedMultiplier >= this.crashPoint) {
                 if (!this.manualCrash) {
                     this.multiplier = this.crashPoint; // Snap to exact result
                 }
-                this.crash();
+                this.crash(); // Crash immediately, do NOT broadcast the overshoot
+            } else {
+                this.multiplier = calculatedMultiplier;
+                this.broadcastMultiplier();
             }
         }, 30);
     }
