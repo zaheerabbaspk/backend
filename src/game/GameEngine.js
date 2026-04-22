@@ -84,16 +84,17 @@ class GameEngine {
         this.interval = setInterval(() => {
             const elapsed = (Date.now() - this.startTime) / 1000;
             
-            // Practical Game Speed Values:
-            // 0s-1s: very slow (~1.00x - 1.10x)
-            // 2s-3s: medium (~1.2x - 1.8x)
-            // 4s+: fast jump (2x - 5x+ very quickly)
-            const newMultiplier = 1.00 * Math.exp(0.05 * elapsed + 0.045 * Math.pow(elapsed, 2));
+            // Exponential Growth Formula: Multiplier = 1.00 * e^(0.06 * seconds)
+            // This mirrors the real game experience (takes ~10-12s to hit 2.0x, speeds up later)
+            const newMultiplier = 1.00 * Math.exp(0.06 * elapsed);
             this.multiplier = Math.floor(newMultiplier * 100) / 100;
 
             this.broadcastMultiplier();
 
             if (this.manualCrash || this.multiplier >= this.crashPoint) {
+                if (!this.manualCrash) {
+                    this.multiplier = this.crashPoint; // Snap to exact result
+                }
                 this.crash();
             }
         }, 30);
