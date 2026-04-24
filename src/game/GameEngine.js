@@ -30,7 +30,7 @@ class GameEngine {
     generateCrashPoint() {
         // Industry Standard "Provably Fair" Logic
         this.nonce++;
-        
+
         // 1. Create a hash from seed + nonce
         const hash = crypto.createHmac('sha256', this.serverSeed)
             .update(this.nonce.toString())
@@ -38,16 +38,16 @@ class GameEngine {
 
         // 2. Conver the first 8 characters of the hash to a number
         const hashInt = parseInt(hash.substring(0, 8), 16);
-        
+
         // 3. Logarithmic distribution logic (X = hashInt / 2^32)
         const rand = hashInt / Math.pow(2, 32);
-        
+
         // 4. House Edge (1%)
-        const houseEdge = 0.01; 
-        
+        const houseEdge = 0.01;
+
         // 5. Formula: (1 - HouseEdge) / (1 - Random)
         const multiplier = (1 - houseEdge) / (1 - rand);
-        
+
         const result = Math.max(1.00, Math.floor(multiplier * 100) / 100);
         return result.toFixed(2);
     }
@@ -83,19 +83,19 @@ class GameEngine {
         // Frequency: 30ms for "Buttery Smooth" updates
         this.interval = setInterval(() => {
             const elapsed = (Date.now() - this.startTime) / 1000;
-            
-            // Exponential Growth Formula: Multiplier = 1.00 * e^(0.06 * seconds)
-            const newMultiplier = 1.00 * Math.exp(0.06 * elapsed);
-            let calculatedMultiplier = Math.floor(newMultiplier * 100) / 100;
 
-            if (this.manualCrash || calculatedMultiplier >= this.crashPoint) {
+            // Exponential Growth Formula: Multiplier = 1.00 * e^(0.06 * seconds)
+            // This mirrors the real game experience (takes ~10-12s to hit 2.0x, speeds up later)
+            const newMultiplier = 1.00 * Math.exp(0.06 * elapsed);
+            this.multiplier = Math.floor(newMultiplier * 100) / 100;
+
+            this.broadcastMultiplier();
+
+            if (this.manualCrash || this.multiplier >= this.crashPoint) {
                 if (!this.manualCrash) {
                     this.multiplier = this.crashPoint; // Snap to exact result
                 }
-                this.crash(); // Crash immediately, do NOT broadcast the overshoot
-            } else {
-                this.multiplier = calculatedMultiplier;
-                this.broadcastMultiplier();
+                this.crash();
             }
         }, 30);
     }
