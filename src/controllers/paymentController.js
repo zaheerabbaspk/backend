@@ -102,22 +102,28 @@ const paymentController = {
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
             // Handle both Safepay v1 and v2 structures
-            const status = req.body.status || req.body.state || req.body.data?.state || req.body.data?.status || req.body.tracker?.state;
+            const status = req.body.status || req.body.state || req.body.data?.state || req.body.tracker?.state;
             const amount = req.body.amount || req.body.data?.amount || req.body.tracker?.amount;
             
-            // Search everywhere for client_order_id
-            let client_order_id = req.body.client_order_id || req.body.metadata?.order_id;
-            if (!client_order_id && req.body.data) {
-                client_order_id = req.body.data.client_order_id || req.body.data.metadata?.order_id || req.body.data.reference;
-            }
-            if (!client_order_id && req.body.tracker) {
-                client_order_id = req.body.tracker.client_order_id || req.body.tracker.metadata?.order_id;
-            }
+            // Recursive search for ORD_ pattern in the whole object
+            const findOrderId = (obj) => {
+                if (!obj || typeof obj !== 'object') return null;
+                for (const key in obj) {
+                    const val = obj[key];
+                    if (typeof val === 'string' && val.startsWith('ORD_')) return val;
+                    if (typeof val === 'object') {
+                        const found = findOrderId(val);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+
+            const client_order_id = findOrderId(req.body);
 
             console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
-            console.log('[Webhook] Full Data Metadata:', JSON.stringify(req.body.data?.metadata || req.body.metadata || {}));
 
-            // Check for various success indicators (PAID is common in Safepay 2.0)
+            // Check for various success indicators
             const isSuccess = 
                 status === 'success' || 
                 status === 'paid' || 
@@ -125,10 +131,9 @@ const paymentController = {
                 status === 'TRACKER_ENDED' || 
                 status === 'completed';
 
-            if (isSuccess) {
+            if (isSuccess && client_order_id) {
                 console.log('[Webhook] Transaction Success confirmed. Parsing order ID...');
-                // client_order_id format: ORD_userId_timestamp
-                const parts = (client_order_id || '').split('_');
+                const parts = client_order_id.split('_');
                 const userId = parts[1];
 
                 if (!userId) {
