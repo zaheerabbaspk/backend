@@ -45,7 +45,9 @@ const paymentController = {
                     currency: currency,
                     client_order_id: `ORD_${userId}_${Date.now()}`,
                     client: SAFEPAY_API_KEY,
-                    environment: SAFEPAY_ENV
+                    environment: SAFEPAY_ENV,
+                    redirect_url: "http://localhost:8100/home",
+                    cancel_url: "http://localhost:8100/deposit"
                 },
                 {
                     headers: {
