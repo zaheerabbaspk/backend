@@ -76,7 +76,10 @@ const paymentController = {
             console.log('[PaymentController] Final Checkout URL:', checkoutUrl);
 
             if (checkoutUrl) {
-                res.json({ url: checkoutUrl });
+                res.json({ 
+                    url: checkoutUrl,
+                    checkout_url: checkoutUrl 
+                });
             } else {
                 throw new Error('Failed to generate checkout URL');
             }
