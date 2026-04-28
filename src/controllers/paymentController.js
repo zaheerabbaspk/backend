@@ -15,6 +15,8 @@ const paymentController = {
         try {
             const { amount, userId, currency = 'PKR' } = req.body;
 
+            console.log('[PaymentController] Request received:', { amount, userId });
+
             if (!amount || !userId) {
                 return res.status(400).json({ error: 'Amount and UserId are required' });
             }
@@ -26,21 +28,25 @@ const paymentController = {
                 order_id: `ORD_${userId}_${Date.now()}`
             };
 
-            console.log('[PaymentController] Creating Safepay order:', payload);
+            console.log('[PaymentController] Calling Safepay API:', `${BASE_URL}/checkout/v1/orders`);
+            console.log('[PaymentController] Payload:', payload);
+            console.log('[PaymentController] Using API Key:', SAFEPAY_API_KEY ? 'Present' : 'Missing');
 
             const response = await axios.post(
                 `${BASE_URL}/checkout/v1/orders`,
                 payload,
                 {
                     headers: {
-                        'X-SFPY-MERCHANT-API-KEY': SAFEPAY_API_KEY
+                        'Authorization': `Bearer ${SAFEPAY_API_KEY}`
                     }
                 }
             );
 
+            console.log('[PaymentController] Safepay Response:', response.data);
+
             // Safepay returns a token and potentially a redirect_url
-            const token = response.data.token;
-            const checkoutUrl = response.data.redirect_url || `${BASE_URL}/checkout/pay?token=${token}`;
+            const token = response.data.data?.token || response.data.token;
+            const checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url || `${BASE_URL}/checkout/pay?token=${token}`;
 
             res.json({
                 checkout_url: checkoutUrl,
@@ -48,8 +54,13 @@ const paymentController = {
                 order_id: payload.order_id
             });
         } catch (error) {
-            console.error('[PaymentController] Create Order Error:', error.response?.data || error.message);
-            res.status(500).json({ error: 'Failed to create payment order' });
+            console.error('[PaymentController] Create Order Error Details:', 
+                error.response?.data || error.message
+            );
+            res.status(500).json({ 
+                error: 'Failed to create payment order',
+                details: error.response?.data || error.message 
+            });
         }
     },
 
