@@ -85,21 +85,29 @@ const paymentController = {
 
     handleWebhook: async (req, res) => {
         try {
-            console.log('[Webhook] Received:', JSON.stringify(req.body));
+            console.log('[Webhook] Received Safepay Webhook:', JSON.stringify(req.body));
             
-            const { status, client_order_id, amount, state } = req.body;
-            
-            if (status === 'success' || status === 'paid' || state === 'TRACKER_ENDED') {
-                
-                const orderId = client_order_id || (req.body.metadata ? req.body.metadata.order_id : '');
-                const parts = orderId.split('_');
+            // Safepay v1 webhook payload structure
+            const status = req.body.status || req.body.state;
+            const client_order_id = req.body.client_order_id || req.body.metadata?.order_id || req.body.order_id;
+            const amount = req.body.amount;
+
+            // Check for various success indicators
+            const isSuccess = status === 'success' || status === 'paid' || status === 'TRACKER_ENDED' || status === 'completed';
+
+            if (isSuccess) {
+                // client_order_id format: ORD_userId_timestamp
+                const parts = (client_order_id || '').split('_');
                 const userId = parts[1];
 
                 if (!userId) {
-                    console.error('[Webhook] No userId found');
-                    return res.status(200).send('OK but no userId');
+                    console.error('[Webhook] Could not identify user from order_id:', client_order_id);
+                    return res.status(200).send('OK but no user found');
                 }
 
+                console.log(`[Webhook] Success confirmed. Updating balance for User: ${userId}, Amount: ${amount}`);
+
+                // 1. Fetch current profile
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('balance')
@@ -107,7 +115,7 @@ const paymentController = {
                     .single();
 
                 if (fetchError) {
-                    console.error('[Webhook] Supabase Fetch Error Details:', JSON.stringify(fetchError));
+                    console.error('[Webhook] Database Error (Fetch):', fetchError.message);
                     throw fetchError;
                 }
 
@@ -115,6 +123,7 @@ const paymentController = {
                 const depositAmount = parseFloat(amount || 0);
                 const newBalance = currentBalance + depositAmount;
 
+                // 2. Update balance
                 const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ 
@@ -123,15 +132,20 @@ const paymentController = {
                     })
                     .eq('id', userId);
 
-                if (updateError) throw updateError;
+                if (updateError) {
+                    console.error('[Webhook] Database Error (Update):', updateError.message);
+                    throw updateError;
+                }
 
-                console.log(`[Webhook] Success: New balance is ${newBalance}`);
+                console.log(`[Webhook] Wallet Updated! User: ${userId} | New Balance: ${newBalance}`);
+            } else {
+                console.log(`[Webhook] Payment not successful yet. Status: ${status}`);
             }
 
-            res.status(200).send('OK');
+            res.status(200).send('Webhook Processed Successfully');
         } catch (error) {
-            console.error('[Webhook] Error:', error.message);
-            res.status(500).send('Webhook Processing Error');
+            console.error('[Webhook] Fatal Error:', error.message);
+            res.status(500).send('Webhook processing failed');
         }
     }
 };
