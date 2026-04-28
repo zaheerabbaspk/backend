@@ -143,14 +143,11 @@ const paymentController = {
 
             if (isSuccess && (client_order_id || directUserId)) {
                 console.log('[Webhook] Transaction Success confirmed. Parsing user ID...');
-                let userId = directUserId;
-                if (!userId && client_order_id) {
-                    const parts = client_order_id.split('_');
-                    userId = parts[1];
-                }
+                const parts = (client_order_id || '').split('_');
+                let userId = directUserId || (parts.length > 1 ? parts[1] : parts[0]);
 
-                if (!userId) {
-                    console.error('[Webhook] Could not identify user from order_id:', client_order_id);
+                if (!userId || userId === 'ORD') {
+                    console.error('[Webhook] Still no valid userId found. Full Payload for debugging:', JSON.stringify(req.body));
                     return res.status(200).send('OK but no user found');
                 }
 
