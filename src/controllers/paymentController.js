@@ -54,6 +54,7 @@ const paymentController = {
                     client: SAFEPAY_API_KEY,
                     environment: SAFEPAY_ENV,
                     metadata: {
+                        "userId": userId,
                         "order_id": `ORD_${userId}_${Date.now()}`
                     },
                     redirect_url: "http://localhost:8100/home",
@@ -106,27 +107,31 @@ const paymentController = {
             const status = req.body.status || req.body.state || req.body.data?.state || req.body.tracker?.state || req.body.data?.status;
             const amount = req.body.amount || req.body.data?.amount || req.body.tracker?.amount;
             
-            // Search everywhere for client_order_id, prioritize reference
-            let client_order_id = req.body.reference || req.body.data?.reference || req.body.client_order_id || req.body.metadata?.order_id;
+            // Search everywhere for client_order_id or userId
+            let client_order_id = req.body.reference || req.body.data?.reference || req.body.client_order_id || req.body.metadata?.order_id || req.body.data?.metadata?.userId;
+            let directUserId = req.body.userId || req.body.metadata?.userId || req.body.data?.metadata?.userId || req.body.data?.userId;
             
-            if (!client_order_id) {
-                // Recursive search for ORD_ pattern in the whole object as fallback
-                const findOrderId = (obj) => {
+            if (!client_order_id && !directUserId) {
+                // Recursive search for ORD_ pattern or userId
+                const findData = (obj) => {
                     if (!obj || typeof obj !== 'object') return null;
                     for (const key in obj) {
                         const val = obj[key];
-                        if (typeof val === 'string' && val.startsWith('ORD_')) return val;
+                        if (key === 'userId' || key === 'user_id') return { userId: val };
+                        if (typeof val === 'string' && val.startsWith('ORD_')) return { orderId: val };
                         if (typeof val === 'object') {
-                            const found = findOrderId(val);
+                            const found = findData(val);
                             if (found) return found;
                         }
                     }
                     return null;
                 };
-                client_order_id = findOrderId(req.body);
+                const found = findData(req.body);
+                if (found?.userId) directUserId = found.userId;
+                if (found?.orderId) client_order_id = found.orderId;
             }
 
-            console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
+            console.log('[Webhook] Debug Info:', { status, client_order_id, directUserId, amount });
 
             // Check for various success indicators
             const isSuccess = 
@@ -136,10 +141,13 @@ const paymentController = {
                 status === 'TRACKER_ENDED' || 
                 status === 'completed';
 
-            if (isSuccess && client_order_id) {
-                console.log('[Webhook] Transaction Success confirmed. Parsing order ID...');
-                const parts = client_order_id.split('_');
-                const userId = parts[1];
+            if (isSuccess && (client_order_id || directUserId)) {
+                console.log('[Webhook] Transaction Success confirmed. Parsing user ID...');
+                let userId = directUserId;
+                if (!userId && client_order_id) {
+                    const parts = client_order_id.split('_');
+                    userId = parts[1];
+                }
 
                 if (!userId) {
                     console.error('[Webhook] Could not identify user from order_id:', client_order_id);
