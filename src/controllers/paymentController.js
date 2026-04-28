@@ -65,16 +65,12 @@ const paymentController = {
             let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
 
             if (!checkoutUrl && token) {
-                // Safepay official checkout URL format
+                // Try the standard checkout subdomain
                 const checkoutBase = SAFEPAY_ENV === 'sandbox' 
-                    ? 'https://sandbox.api.getsafepay.com/components' 
-                    : 'https://api.getsafepay.com/components';
+                    ? 'https://sandbox.getsafepay.com/checkout/pay' 
+                    : 'https://getsafepay.com/checkout/pay';
                 
-                const orderId = `ORD_${userId}_${Date.now()}`;
-                const successUrl = "http://localhost:8100/home";
-                const cancelUrl = "http://localhost:8100/deposit";
-
-                checkoutUrl = `${checkoutBase}?env=${SAFEPAY_ENV}&beacon=${token}&source=mobile&order_id=${orderId}&redirect_url=${successUrl}&cancel_url=${cancelUrl}`;
+                checkoutUrl = `${checkoutBase}?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
             }
 
             console.log('[PaymentController] Final Checkout URL:', checkoutUrl);
