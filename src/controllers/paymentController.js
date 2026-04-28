@@ -38,16 +38,15 @@ const paymentController = {
             console.log('[PaymentController] Client ID:', SAFEPAY_API_KEY);
             console.log('[PaymentController] Environment:', SAFEPAY_ENV);
 
-            console.log('[PaymentController] Sending Payload:', JSON.stringify({
-                amount: parseFloat(amount),
-                currency: currency,
-                environment: SAFEPAY_ENV,
-                client: SAFEPAY_API_KEY
-            }));
+            console.log('[PaymentController] Calling URL:', `${BASE_URL}/order/v1/init`);
 
-            const response = await axios.post(
-                `${BASE_URL}/order/v1/init`,
-                {
+            const fetchResponse = await fetch(`${BASE_URL}/order/v1/init`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}`
+                },
+                body: JSON.stringify({
                     amount: parseFloat(amount),
                     currency: currency,
                     client_order_id: `ORD_${userId}_${Date.now()}`,
@@ -58,22 +57,20 @@ const paymentController = {
                     },
                     redirect_url: "http://localhost:8100/home",
                     cancel_url: "http://localhost:8100/deposit"
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}`
-                    },
-                    timeout: 10000 // Add 10s timeout
-                }
-            );
+                })
+            });
 
-            console.log('[PaymentController] Safepay Response Received Status:', response.status);
+            const responseData = await fetchResponse.json();
+            console.log('[PaymentController] Safepay Response:', JSON.stringify(responseData));
 
-            const token = response.data.data?.token || response.data.token;
-            let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
+            if (!fetchResponse.ok) {
+                throw new Error(responseData.message || 'Safepay API Error');
+            }
+
+            const token = responseData.data?.token || responseData.token;
+            let checkoutUrl = responseData.data?.redirect_url || responseData.redirect_url;
 
             if (!checkoutUrl && token) {
-                // Using the api subdomain which we know is active
                 const checkoutBase = SAFEPAY_ENV === 'sandbox' 
                     ? 'https://sandbox.api.getsafepay.com/checkout/pay' 
                     : 'https://api.getsafepay.com/checkout/pay';
@@ -92,12 +89,10 @@ const paymentController = {
                 throw new Error('Failed to generate checkout URL');
             }
         } catch (error) {
-            const errorDetails = error.response?.data || error.message;
-            console.error('[PaymentController] Safepay API Error:', JSON.stringify(errorDetails));
-            
+            console.error('[PaymentController] Error:', error.message);
             res.status(500).json({ 
                 error: 'Failed to initiate payment',
-                details: errorDetails
+                details: error.message
             });
         }
     },
