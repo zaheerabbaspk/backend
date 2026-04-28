@@ -21,19 +21,19 @@ const paymentController = {
                 return res.status(400).json({ error: 'Amount and UserId are required' });
             }
 
-            // Prepare payload for Safepay
+            // Prepare payload for Safepay (v1 standard)
             const payload = {
                 amount: parseFloat(amount),
                 currency: currency,
-                order_id: `ORD_${userId}_${Date.now()}`
+                client_order_id: `ORD_${userId}_${Date.now()}`
             };
 
-            console.log('[PaymentController] Calling Safepay API:', `${BASE_URL}/checkout/v1/orders`);
+            console.log('[PaymentController] Calling Safepay API:', `${BASE_URL}/order/v1/init`);
             console.log('[PaymentController] Payload:', payload);
             console.log('[PaymentController] Using API Key:', SAFEPAY_API_KEY ? 'Present' : 'Missing');
 
             const response = await axios.post(
-                `${BASE_URL}/checkout/v1/orders`,
+                `${BASE_URL}/order/v1/init`,
                 payload,
                 {
                     headers: {
