@@ -59,22 +59,27 @@ const paymentController = {
                 }
             );
 
-            console.log('[PaymentController] Safepay Response:', response.data);
+            console.log('[PaymentController] Safepay Response Data:', JSON.stringify(response.data));
 
-            // Safepay returns a token and potentially a redirect_url
             const token = response.data.data?.token || response.data.token;
             let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
-            
+
             if (!checkoutUrl && token) {
-                // Safepay v1 standard checkout URL format
-                checkoutUrl = `${BASE_URL}/checkout/pay?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
+                // Fix: Checkout page is on getsafepay.com, not api.getsafepay.com
+                const checkoutBase = SAFEPAY_ENV === 'sandbox' 
+                    ? 'https://sandbox.getsafepay.com/checkout/pay' 
+                    : 'https://getsafepay.com/checkout/pay';
+                
+                checkoutUrl = `${checkoutBase}?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
             }
 
-            res.json({
-                checkout_url: checkoutUrl,
-                token: token,
-                order_id: payload.client_order_id
-            });
+            console.log('[PaymentController] Final Checkout URL:', checkoutUrl);
+
+            if (checkoutUrl) {
+                res.json({ url: checkoutUrl });
+            } else {
+                throw new Error('Failed to generate checkout URL');
+            }
         } catch (error) {
             console.error('[PaymentController] Create Order Error Details:', 
                 error.response?.data || error.message
