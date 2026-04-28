@@ -65,10 +65,10 @@ const paymentController = {
             let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
 
             if (!checkoutUrl && token) {
-                // Try the standard checkout subdomain
+                // Using the api subdomain which we know is active
                 const checkoutBase = SAFEPAY_ENV === 'sandbox' 
-                    ? 'https://sandbox.getsafepay.com/checkout/pay' 
-                    : 'https://getsafepay.com/checkout/pay';
+                    ? 'https://sandbox.api.getsafepay.com/checkout/pay' 
+                    : 'https://api.getsafepay.com/checkout/pay';
                 
                 checkoutUrl = `${checkoutBase}?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
             }
