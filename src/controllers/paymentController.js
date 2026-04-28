@@ -25,7 +25,9 @@ const paymentController = {
             const payload = {
                 amount: parseFloat(amount),
                 currency: currency,
-                client_order_id: `ORD_${userId}_${Date.now()}`
+                client_order_id: `ORD_${userId}_${Date.now()}`,
+                client: SAFEPAY_API_KEY,
+                environment: SAFEPAY_ENV
             };
 
             console.log('[PaymentController] Calling Safepay API:', `${BASE_URL}/order/v1/init`);
