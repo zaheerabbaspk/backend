@@ -50,6 +50,7 @@ const paymentController = {
                     amount: parseFloat(amount),
                     currency: currency,
                     client_order_id: `ORD_${userId}_${Date.now()}`,
+                    reference: `ORD_${userId}_${Date.now()}`,
                     client: SAFEPAY_API_KEY,
                     environment: SAFEPAY_ENV,
                     metadata: {
@@ -102,24 +103,28 @@ const paymentController = {
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
             // Handle both Safepay v1 and v2 structures
-            const status = req.body.status || req.body.state || req.body.data?.state || req.body.tracker?.state;
+            const status = req.body.status || req.body.state || req.body.data?.state || req.body.tracker?.state || req.body.data?.status;
             const amount = req.body.amount || req.body.data?.amount || req.body.tracker?.amount;
             
-            // Recursive search for ORD_ pattern in the whole object
-            const findOrderId = (obj) => {
-                if (!obj || typeof obj !== 'object') return null;
-                for (const key in obj) {
-                    const val = obj[key];
-                    if (typeof val === 'string' && val.startsWith('ORD_')) return val;
-                    if (typeof val === 'object') {
-                        const found = findOrderId(val);
-                        if (found) return found;
+            // Search everywhere for client_order_id, prioritize reference
+            let client_order_id = req.body.reference || req.body.data?.reference || req.body.client_order_id || req.body.metadata?.order_id;
+            
+            if (!client_order_id) {
+                // Recursive search for ORD_ pattern in the whole object as fallback
+                const findOrderId = (obj) => {
+                    if (!obj || typeof obj !== 'object') return null;
+                    for (const key in obj) {
+                        const val = obj[key];
+                        if (typeof val === 'string' && val.startsWith('ORD_')) return val;
+                        if (typeof val === 'object') {
+                            const found = findOrderId(val);
+                            if (found) return found;
+                        }
                     }
-                }
-                return null;
-            };
-
-            const client_order_id = findOrderId(req.body);
+                    return null;
+                };
+                client_order_id = findOrderId(req.body);
+            }
 
             console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
 
