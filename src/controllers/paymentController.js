@@ -101,15 +101,20 @@ const paymentController = {
         try {
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
-            // Safepay v1 webhook payload structure
-            const status = req.body.status || req.body.state;
-            const client_order_id = req.body.client_order_id || req.body.metadata?.order_id || req.body.order_id;
-            const amount = req.body.amount;
+            // Handle both Safepay v1 and v2 structures
+            const status = req.body.status || req.body.state || req.body.data?.state;
+            const client_order_id = req.body.client_order_id || req.body.metadata?.order_id || req.body.data?.client_order_id || req.body.data?.reference;
+            const amount = req.body.amount || req.body.data?.amount;
 
             console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
 
-            // Check for various success indicators
-            const isSuccess = status === 'success' || status === 'paid' || status === 'TRACKER_ENDED' || status === 'completed';
+            // Check for various success indicators (PAID is common in Safepay 2.0)
+            const isSuccess = 
+                status === 'success' || 
+                status === 'paid' || 
+                status === 'PAID' || 
+                status === 'TRACKER_ENDED' || 
+                status === 'completed';
 
             if (isSuccess) {
                 console.log('[Webhook] Transaction Success confirmed. Parsing order ID...');
