@@ -102,8 +102,13 @@ const paymentController = {
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
             // Handle both Safepay v1 and v2 structures
-            const status = req.body.status || req.body.state || req.body.data?.state;
-            const client_order_id = req.body.client_order_id || req.body.metadata?.order_id || req.body.data?.client_order_id || req.body.data?.reference;
+            const status = req.body.status || req.body.state || req.body.data?.state || req.body.data?.status;
+            const client_order_id = 
+                req.body.client_order_id || 
+                req.body.metadata?.order_id || 
+                req.body.data?.client_order_id || 
+                req.body.data?.metadata?.order_id ||
+                req.body.data?.reference;
             const amount = req.body.amount || req.body.data?.amount;
 
             console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
