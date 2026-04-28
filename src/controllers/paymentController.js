@@ -99,17 +99,20 @@ const paymentController = {
 
     handleWebhook: async (req, res) => {
         try {
-            console.log('[Webhook] Received Safepay Webhook:', JSON.stringify(req.body));
+            console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
             // Safepay v1 webhook payload structure
             const status = req.body.status || req.body.state;
             const client_order_id = req.body.client_order_id || req.body.metadata?.order_id || req.body.order_id;
             const amount = req.body.amount;
 
+            console.log('[Webhook] Debug Info:', { status, client_order_id, amount });
+
             // Check for various success indicators
             const isSuccess = status === 'success' || status === 'paid' || status === 'TRACKER_ENDED' || status === 'completed';
 
             if (isSuccess) {
+                console.log('[Webhook] Transaction Success confirmed. Parsing order ID...');
                 // client_order_id format: ORD_userId_timestamp
                 const parts = (client_order_id || '').split('_');
                 const userId = parts[1];
