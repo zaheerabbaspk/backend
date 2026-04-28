@@ -81,12 +81,12 @@ const paymentController = {
                 throw new Error('Failed to generate checkout URL');
             }
         } catch (error) {
-            console.error('[PaymentController] Create Order Error Details:', 
-                error.response?.data || error.message
-            );
+            const errorDetails = error.response?.data || error.message;
+            console.error('[PaymentController] Safepay API Error:', JSON.stringify(errorDetails));
+            
             res.status(500).json({ 
-                error: 'Failed to create payment order',
-                details: error.response?.data || error.message 
+                error: 'Failed to initiate payment',
+                details: errorDetails
             });
         }
     },
