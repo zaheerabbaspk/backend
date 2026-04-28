@@ -61,7 +61,8 @@ const paymentController = {
             let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
             
             if (!checkoutUrl && token) {
-                checkoutUrl = `${BASE_URL}/checkout/pay?token=${token}&env=${SAFEPAY_ENV}`;
+                // Safepay v1 standard checkout URL format
+                checkoutUrl = `${BASE_URL}/checkout/pay?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
             }
 
             res.json({
