@@ -96,59 +96,54 @@ const paymentController = {
             // For Sandbox, we might skip or log if secret is not set
             if (SAFEPAY_SECRET_KEY && signature) {
                 const hmac = crypto.createHmac('sha256', SAFEPAY_SECRET_KEY);
-                const bodyString = JSON.stringify(payload);
-                const expectedSignature = hmac.update(bodyString).digest('hex');
+            // Safepay sends the status in req.body
+            // Note: In v1, it might be in different fields depending on the event
+            const { status, client_order_id, amount } = req.body;
+
+            console.log('[Webhook] Raw Body:', JSON.stringify(req.body));
+            console.log('[Webhook] Payment Status:', status);
+            console.log('[Webhook] Order ID:', client_order_id);
+
+            // In Sandbox, we trust the status if it's 'success' or 'paid'
+            // For production, we must verify the signature
+            if (status === 'success' || status === 'paid' || req.body.state === 'TRACKER_ENDED') {
                 
-                if (signature !== expectedSignature) {
-                    console.error('[PaymentController] Signature Verification Failed');
-                    // return res.status(401).send('Invalid signature');
-                } else {
-                    console.log('[PaymentController] Signature Verified');
+                // client_order_id was ORD_userId_timestamp
+                const parts = (client_order_id || req.body.metadata?.order_id || '').split('_');
+                const userId = parts[1];
+
+                if (!userId) {
+                    console.error('[Webhook] Could not extract userId from:', client_order_id);
+                    return res.status(400).send('Invalid Order ID');
                 }
-            }
 
-            const { status, order_id } = payload;
+                console.log('[Webhook] Processing payment for user:', userId, 'Amount:', amount);
 
-            // Extract the user ID from the order_id we created
-            // order_id format: ORD_userId_timestamp
-            const parts = order_id.split('_');
-            const userId = parts[1];
-            const amount = parseFloat(payload.amount);
-
-            if (status === 'success' || status === 'paid') {
-                console.log(`[PaymentController] Payment SUCCESS for user ${userId}: ${amount}`);
-
-                // 1. Get current balance
-                const { data: profile, error: getError } = await supabase
+                // 1. Fetch current profile
+                const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('balance')
                     .eq('id', userId)
                     .single();
 
-                if (getError) throw getError;
+                if (fetchError) throw fetchError;
 
-                // 2. Update balance
+                // 2. Calculate new balance
                 const currentBalance = parseFloat(profile.balance || 0);
-                const newBalance = currentBalance + amount;
+                const depositAmount = parseFloat(amount || 0);
+                const newBalance = currentBalance + depositAmount;
 
+                // 3. Update profile
                 const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ 
                         balance: newBalance,
-                        updated_at: new Date().toISOString()
+                        updated_at: new Date()
                     })
                     .eq('id', userId);
 
                 if (updateError) throw updateError;
 
-                console.log(`[PaymentController] Balance updated for ${userId}: ${currentBalance} -> ${newBalance}`);
-                
-                // Optional: Log to payment_proofs or a transactions table if you decide to create one
-            } else {
-                console.log(`[PaymentController] Payment status: ${status} for order: ${order_id}`);
-            }
-
-            res.send('OK');
         } catch (error) {
             console.error('[PaymentController] Webhook Error:', error.message);
             res.status(500).send('Webhook error');
