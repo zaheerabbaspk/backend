@@ -58,12 +58,16 @@ const paymentController = {
 
             // Safepay returns a token and potentially a redirect_url
             const token = response.data.data?.token || response.data.token;
-            const checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url || `${BASE_URL}/checkout/pay?token=${token}`;
+            let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
+            
+            if (!checkoutUrl && token) {
+                checkoutUrl = `${BASE_URL}/checkout/pay?token=${token}&env=${SAFEPAY_ENV}`;
+            }
 
             res.json({
                 checkout_url: checkoutUrl,
                 token: token,
-                order_id: payload.order_id
+                order_id: payload.client_order_id
             });
         } catch (error) {
             console.error('[PaymentController] Create Order Error Details:', 
