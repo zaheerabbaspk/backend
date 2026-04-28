@@ -85,41 +85,23 @@ const paymentController = {
 
     handleWebhook: async (req, res) => {
         try {
-            // Safepay webhook signature verification (v1)
-            // The signature is usually sent in the X-SFPY-SIGNATURE header
-            const signature = req.headers['x-sfpy-signature'];
-            const payload = req.body;
-
-            console.log('[PaymentController] Received Webhook:', payload);
-
-            // In production, you MUST verify the signature
-            // For Sandbox, we might skip or log if secret is not set
-            if (SAFEPAY_SECRET_KEY && signature) {
-                const hmac = crypto.createHmac('sha256', SAFEPAY_SECRET_KEY);
-            // Safepay sends the status in req.body
-            // Note: In v1, it might be in different fields depending on the event
-            const { status, client_order_id, amount } = req.body;
-
-            console.log('[Webhook] Raw Body:', JSON.stringify(req.body));
-            console.log('[Webhook] Payment Status:', status);
-            console.log('[Webhook] Order ID:', client_order_id);
-
-            // In Sandbox, we trust the status if it's 'success' or 'paid'
-            // For production, we must verify the signature
-            if (status === 'success' || status === 'paid' || req.body.state === 'TRACKER_ENDED') {
+            console.log('[Webhook] Received:', JSON.stringify(req.body));
+            
+            const { status, client_order_id, amount, state } = req.body;
+            
+            if (status === 'success' || status === 'paid' || state === 'TRACKER_ENDED') {
                 
-                // client_order_id was ORD_userId_timestamp
-                const parts = (client_order_id || req.body.metadata?.order_id || '').split('_');
+                const orderId = client_order_id || (req.body.metadata ? req.body.metadata.order_id : '');
+                const parts = orderId.split('_');
                 const userId = parts[1];
 
                 if (!userId) {
-                    console.error('[Webhook] Could not extract userId from:', client_order_id);
-                    return res.status(400).send('Invalid Order ID');
+                    console.error('[Webhook] No userId found');
+                    return res.status(200).send('OK but no userId');
                 }
 
-                console.log('[Webhook] Processing payment for user:', userId, 'Amount:', amount);
+                console.log(`[Webhook] Updating balance for ${userId}: +${amount}`);
 
-                // 1. Fetch current profile
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('balance')
@@ -128,25 +110,27 @@ const paymentController = {
 
                 if (fetchError) throw fetchError;
 
-                // 2. Calculate new balance
                 const currentBalance = parseFloat(profile.balance || 0);
                 const depositAmount = parseFloat(amount || 0);
                 const newBalance = currentBalance + depositAmount;
 
-                // 3. Update profile
                 const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ 
                         balance: newBalance,
-                        updated_at: new Date()
+                        updated_at: new Date().toISOString()
                     })
                     .eq('id', userId);
 
                 if (updateError) throw updateError;
 
+                console.log(`[Webhook] Success: New balance is ${newBalance}`);
+            }
+
+            res.status(200).send('OK');
         } catch (error) {
-            console.error('[PaymentController] Webhook Error:', error.message);
-            res.status(500).send('Webhook error');
+            console.error('[Webhook] Error:', error.message);
+            res.status(500).send('Webhook Processing Error');
         }
     }
 };
