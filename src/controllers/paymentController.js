@@ -57,6 +57,8 @@ const paymentController = {
                         "userId": userId,
                         "order_id": `ORD_${userId}_${Date.now()}`
                     },
+                    source: userId,
+                    custom_field: userId,
                     redirect_url: "http://localhost:8100/home",
                     cancel_url: "http://localhost:8100/deposit"
                 })
@@ -101,6 +103,7 @@ const paymentController = {
 
     handleWebhook: async (req, res) => {
         try {
+            console.log('[Webhook] Received Safepay Webhook Payload Keys:', Object.keys(req.body));
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
             
             // Handle both Safepay v1 and v2 structures
