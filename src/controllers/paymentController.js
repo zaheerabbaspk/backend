@@ -108,17 +108,22 @@ const paymentController = {
                 console.log(`[Webhook] Success confirmed. Updating balance for User: ${userId}, Amount: ${amount}`);
 
                 // 1. Fetch current profile
-                const { data: profile, error: fetchError } = await supabase
+                const { data: profiles, error: fetchError } = await supabase
                     .from('profiles')
-                    .select('balance')
-                    .eq('id', userId)
-                    .single();
+                    .select()
+                    .eq('id', userId);
 
                 if (fetchError) {
                     console.error('[Webhook] Database Error (Fetch):', fetchError.message);
                     throw fetchError;
                 }
 
+                if (!profiles || profiles.length === 0) {
+                    console.error('[Webhook] No profile found for user:', userId);
+                    return res.status(200).send('OK but no user found');
+                }
+
+                const profile = profiles[0];
                 const currentBalance = parseFloat(profile.balance || 0);
                 const depositAmount = parseFloat(amount || 0);
                 const newBalance = currentBalance + depositAmount;
