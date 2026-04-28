@@ -100,15 +100,16 @@ const paymentController = {
                     return res.status(200).send('OK but no userId');
                 }
 
-                console.log(`[Webhook] Updating balance for ${userId}: +${amount}`);
-
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('balance')
                     .eq('id', userId)
                     .single();
 
-                if (fetchError) throw fetchError;
+                if (fetchError) {
+                    console.error('[Webhook] Supabase Fetch Error Details:', JSON.stringify(fetchError));
+                    throw fetchError;
+                }
 
                 const currentBalance = parseFloat(profile.balance || 0);
                 const depositAmount = parseFloat(amount || 0);
