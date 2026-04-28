@@ -38,6 +38,13 @@ const paymentController = {
             console.log('[PaymentController] Client ID:', SAFEPAY_API_KEY);
             console.log('[PaymentController] Environment:', SAFEPAY_ENV);
 
+            console.log('[PaymentController] Sending Payload:', JSON.stringify({
+                amount: parseFloat(amount),
+                currency: currency,
+                environment: SAFEPAY_ENV,
+                client: SAFEPAY_API_KEY
+            }));
+
             const response = await axios.post(
                 `${BASE_URL}/order/v1/init`,
                 {
@@ -55,11 +62,12 @@ const paymentController = {
                 {
                     headers: {
                         'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}`
-                    }
+                    },
+                    timeout: 10000 // Add 10s timeout
                 }
             );
 
-            console.log('[PaymentController] Safepay Response Data:', JSON.stringify(response.data));
+            console.log('[PaymentController] Safepay Response Received Status:', response.status);
 
             const token = response.data.data?.token || response.data.token;
             let checkoutUrl = response.data.data?.redirect_url || response.data.redirect_url;
