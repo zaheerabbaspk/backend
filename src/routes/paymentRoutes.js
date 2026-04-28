@@ -6,6 +6,7 @@ const paymentController = require('../controllers/paymentController');
 router.post('/create-order', paymentController.createOrder);
 
 // Safepay Webhook endpoint
+router.get('/webhook', (req, res) => res.send('Webhook endpoint is active (GET)!'));
 router.post('/webhook', paymentController.handleWebhook);
 
 module.exports = router;
