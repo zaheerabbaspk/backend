@@ -34,18 +34,22 @@ const paymentController = {
             console.log('[PaymentController] Payload:', payload);
             console.log('[PaymentController] Using API Key:', SAFEPAY_API_KEY ? 'Present' : 'Missing');
 
+            console.log('[PaymentController] Initializing Safepay Order');
+            console.log('[PaymentController] Client ID:', SAFEPAY_API_KEY);
+            console.log('[PaymentController] Environment:', SAFEPAY_ENV);
+
             const response = await axios.post(
                 `${BASE_URL}/order/v1/init`,
                 {
                     amount: parseFloat(amount),
                     currency: currency,
                     client_order_id: `ORD_${userId}_${Date.now()}`,
-                    client: SAFEPAY_API_KEY,      // sec_09d9... (as per screenshot Public key)
+                    client: SAFEPAY_API_KEY,
                     environment: SAFEPAY_ENV
                 },
                 {
                     headers: {
-                        'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}` // e321... (as per screenshot Secret key)
+                        'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}`
                     }
                 }
             );
