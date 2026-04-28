@@ -36,10 +36,16 @@ const paymentController = {
 
             const response = await axios.post(
                 `${BASE_URL}/order/v1/init`,
-                payload,
+                {
+                    amount: parseFloat(amount),
+                    currency: currency,
+                    client_order_id: `ORD_${userId}_${Date.now()}`,
+                    client: SAFEPAY_API_KEY,      // sec_09d9... (as per screenshot Public key)
+                    environment: SAFEPAY_ENV
+                },
                 {
                     headers: {
-                        'Authorization': `Bearer ${SAFEPAY_API_KEY}`
+                        'Authorization': `Bearer ${SAFEPAY_SECRET_KEY}` // e321... (as per screenshot Secret key)
                     }
                 }
             );
