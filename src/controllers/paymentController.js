@@ -199,6 +199,8 @@ const paymentController = {
             res.status(200).send('Webhook Processed Successfully');
         } catch (error) {
             console.error('[Webhook] Fatal Error:', error.message);
+            res.status(500).json({ error: error.message });
+        }
     },
 
     submitManualDeposit: async (req, res) => {
