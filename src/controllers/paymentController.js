@@ -199,7 +199,66 @@ const paymentController = {
             res.status(200).send('Webhook Processed Successfully');
         } catch (error) {
             console.error('[Webhook] Fatal Error:', error.message);
-            res.status(500).send('Webhook processing failed');
+    },
+
+    submitManualDeposit: async (req, res) => {
+        try {
+            const { userId, userEmail, amount, transactionId, method } = req.body;
+            const file = req.file;
+
+            console.log('[ManualDeposit] Received:', { userId, userEmail, amount, transactionId });
+
+            if (!file) {
+                return res.status(400).json({ error: 'No proof file uploaded' });
+            }
+
+            // 1. Upload file to Supabase Storage
+            const fileName = `proofs/${userId}_${Date.now()}_${file.originalname}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('aviator-jeet')
+                .upload(fileName, file.buffer, {
+                    contentType: file.mimetype,
+                    upsert: true
+                });
+
+            if (uploadError) {
+                console.error('[ManualDeposit] Upload Error:', uploadError.message);
+                throw uploadError;
+            }
+
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('aviator-jeet')
+                .getPublicUrl(fileName);
+
+            // 2. Save to manual_deposits table
+            const { data, error: insertError } = await supabase
+                .from('manual_deposits')
+                .insert([{
+                    user_id: userId,
+                    user_email: userEmail,
+                    amount: parseFloat(amount),
+                    transaction_id: transactionId,
+                    proof_url: publicUrl,
+                    method: method,
+                    status: 'pending'
+                }]);
+
+            if (insertError) {
+                console.error('[ManualDeposit] Insert Error:', insertError.message);
+                throw insertError;
+            }
+
+            res.status(200).json({ 
+                message: 'Manual deposit submitted successfully',
+                data: data 
+            });
+        } catch (error) {
+            console.error('[ManualDeposit] Error:', error.message);
+            res.status(500).json({ 
+                error: 'Failed to submit manual deposit',
+                details: error.message
+            });
         }
     }
 };
