@@ -137,7 +137,8 @@ const paymentController = {
                 client_email: userEmail || '',
                 order_id: orderId,
                 addi_info: userId,
-                pay_method: '' // This helps skip the "Enter Details" screen in some cases
+                client_name: 'User_' + userId.substring(0, 5),
+                pay_method: 'any' // Attempting to skip to the full list
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
