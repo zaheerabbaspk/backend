@@ -199,20 +199,21 @@ const paymentController = {
                     return res.status(500).send('Database Error');
                 }
 
-                // Record transaction (optional)
-                await supabase.from('transactions').insert({
+                // Log to manual_deposits so it shows in Admin Panel under "Manual Deposits -> Approved"
+                await supabase.from('manual_deposits').insert({
                     user_id: userId,
                     amount: depositAmount,
-                    type: 'deposit',
-                    method: 'cashmaal',
-                    reference: transaction_id,
-                    status: 'completed'
-                }).select();
+                    status: 'approved',
+                    payment_method: 'CashMaal',
+                    transaction_id: transaction_id || order_id,
+                    created_at: new Date().toISOString()
+                });
 
-                console.log(`[CashMaal Webhook] Wallet Updated! New Balance: ${newBalance}`);
+                console.log(`[CashMaal Webhook] Success! User: ${userId}, New Balance: ${newBalance}`);
+                return res.status(200).send('Success');
             }
 
-            res.status(200).send('OK');
+            res.status(200).send('IPN Received');
         } catch (error) {
             console.error('[CashMaal Webhook] Fatal Error:', error.message);
             res.status(500).send('Internal Server Error');
