@@ -138,7 +138,7 @@ const paymentController = {
                 order_id: orderId,
                 addi_info: userId,
                 client_name: 'User_' + userId.substring(0, 5),
-                pay_method: 'any' // Attempting to skip to the full list
+                pay_method: 'as' // 'as' usually skips to the full local methods list
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
