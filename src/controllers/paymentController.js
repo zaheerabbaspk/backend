@@ -1,6 +1,7 @@
 const axios = require('axios');
 const supabase = require('../config/supabase');
 const crypto = require('crypto');
+const querystring = require('querystring');
 
 const SAFEPAY_API_KEY = process.env.SAFEPAY_API_KEY;
 const SAFEPAY_SECRET_KEY = process.env.SAFEPAY_SECRET_KEY;
@@ -121,7 +122,7 @@ const paymentController = {
 
             const orderId = `ORD_${userId}_${Date.now()}`;
             
-            const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:8100').replace(/\/$/, '');
+            const frontendBase = (process.env.FRONTEND_URL || 'https://bp999.site').replace(/\/$/, '');
             
             // CashMaal SCI Parameters
             const params = {
@@ -137,7 +138,7 @@ const paymentController = {
 
             console.log('[CashMaal] Parameters prepared:', params);
 
-            const queryString = new URLSearchParams(params).toString();
+            const queryString = querystring.stringify(params);
             const checkoutUrl = `https://www.cashmaal.com/Pay/?${queryString}`;
 
             console.log('[CashMaal] Generated URL:', checkoutUrl);
