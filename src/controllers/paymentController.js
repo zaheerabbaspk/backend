@@ -143,7 +143,7 @@ const paymentController = {
 
             res.json({
                 params: params,
-                target_url: `https://www.cashmaal.net/Pay/`,
+                target_url: `https://cashmaal.net/Pay/`,
                 order_id: orderId
             });
         } catch (error) {
