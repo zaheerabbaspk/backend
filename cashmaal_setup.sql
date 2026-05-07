@@ -2,7 +2,7 @@
 -- 1. Create transactions table for tracking all monetary movements
 CREATE TABLE IF NOT EXISTS public.transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     amount DECIMAL(12, 2) NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'game_win', 'game_loss', 'referral_bonus')),
     method TEXT,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 -- 2. Create manual_deposits table for the hidden proof flow
 CREATE TABLE IF NOT EXISTS public.manual_deposits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   user_email TEXT,
   amount DECIMAL(12, 2) NOT NULL,
   transaction_id TEXT,
@@ -30,10 +30,10 @@ ALTER TABLE public.manual_deposits ENABLE ROW LEVEL SECURITY;
 
 -- 4. Policies
 DROP POLICY IF EXISTS "Users can view their own transactions" ON public.transactions;
-CREATE POLICY "Users can view their own transactions" ON public.transactions FOR SELECT USING (auth.uid()::text = user_id);
+CREATE POLICY "Users can view their own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can view their own manual deposits" ON public.manual_deposits;
-CREATE POLICY "Users can view their own manual deposits" ON public.manual_deposits FOR SELECT USING (auth.uid()::text = user_id);
+CREATE POLICY "Users can view their own manual deposits" ON public.manual_deposits FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Admins can do everything on transactions" ON public.transactions;
 CREATE POLICY "Admins can do everything on transactions" ON public.transactions FOR ALL USING (true);
@@ -43,7 +43,7 @@ CREATE POLICY "Admins can do everything on manual deposits" ON public.manual_dep
 
 -- 5. RPC function for submitting manual deposits securely
 CREATE OR REPLACE FUNCTION submit_manual_deposit(
-    p_user_id TEXT,
+    p_user_id UUID,
     p_user_email TEXT,
     p_amount DECIMAL,
     p_transaction_id TEXT,

@@ -107,16 +107,21 @@ const paymentController = {
     createCashMaalOrder: async (req, res) => {
         try {
             const { amount, userId, userEmail } = req.body;
+            console.log('[CashMaal] Init request:', { amount, userId, userEmail });
 
             if (!amount || !userId) {
+                console.error('[CashMaal] Missing required fields');
                 return res.status(400).json({ error: 'Amount and UserId are required' });
             }
 
             if (!CASHMAAL_WEB_ID) {
-                return res.status(500).json({ error: 'CashMaal Web ID is not configured' });
+                console.error('[CashMaal] CASHMAAL_WEB_ID is missing from env');
+                return res.status(500).json({ error: 'CashMaal Web ID is not configured in backend environment' });
             }
 
             const orderId = `ORD_${userId}_${Date.now()}`;
+            
+            const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:8100').replace(/\/$/, '');
             
             // CashMaal SCI Parameters
             const params = {
@@ -125,25 +130,28 @@ const paymentController = {
                 amount: parseFloat(amount),
                 order_id: orderId,
                 client_email: userEmail || '',
-                success_url: `${process.env.FRONTEND_URL || 'http://localhost:8100'}/home?payment=success`,
-                cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:8100'}/deposit?payment=cancelled`,
+                success_url: `${frontendBase}/home?payment=success`,
+                cancel_url: `${frontendBase}/deposit?payment=cancelled`,
                 additional_info: userId
             };
 
-            // CashMaal usually expects a POST request or a direct link with params
-            // We can return the URL for the frontend to redirect
+            console.log('[CashMaal] Parameters prepared:', params);
+
             const queryString = new URLSearchParams(params).toString();
             const checkoutUrl = `https://www.cashmaal.com/Pay/?${queryString}`;
 
-            console.log('[CashMaal] Created Order:', orderId, 'for User:', userId);
+            console.log('[CashMaal] Generated URL:', checkoutUrl);
             
             res.json({ 
                 url: checkoutUrl,
                 order_id: orderId 
             });
         } catch (error) {
-            console.error('[CashMaal] Error:', error.message);
-            res.status(500).json({ error: 'Failed to initiate CashMaal payment' });
+            console.error('[CashMaal] Fatal Error:', error.message, error.stack);
+            res.status(500).json({ 
+                error: 'Failed to initiate CashMaal payment',
+                details: error.message
+            });
         }
     },
 
