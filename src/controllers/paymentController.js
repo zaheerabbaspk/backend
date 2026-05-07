@@ -7,8 +7,8 @@ const SAFEPAY_API_KEY = process.env.SAFEPAY_API_KEY;
 const SAFEPAY_SECRET_KEY = process.env.SAFEPAY_SECRET_KEY;
 const SAFEPAY_ENV = process.env.SAFEPAY_ENVIRONMENT || 'sandbox';
 
-const BASE_URL = SAFEPAY_ENV === 'sandbox' 
-    ? 'https://sandbox.api.getsafepay.com' 
+const BASE_URL = SAFEPAY_ENV === 'sandbox'
+    ? 'https://sandbox.api.getsafepay.com'
     : 'https://api.getsafepay.com';
 
 
@@ -77,26 +77,26 @@ const paymentController = {
             let checkoutUrl = responseData.data?.redirect_url || responseData.redirect_url;
 
             if (!checkoutUrl && token) {
-                const checkoutBase = SAFEPAY_ENV === 'sandbox' 
-                    ? 'https://sandbox.api.getsafepay.com/checkout/pay' 
+                const checkoutBase = SAFEPAY_ENV === 'sandbox'
+                    ? 'https://sandbox.api.getsafepay.com/checkout/pay'
                     : 'https://api.getsafepay.com/checkout/pay';
-                
+
                 checkoutUrl = `${checkoutBase}?beacon=${token}&env=${SAFEPAY_ENV}&client=${SAFEPAY_API_KEY}`;
             }
 
             console.log('[PaymentController] Final Checkout URL:', checkoutUrl);
 
             if (checkoutUrl) {
-                res.json({ 
+                res.json({
                     url: checkoutUrl,
-                    checkout_url: checkoutUrl 
+                    checkout_url: checkoutUrl
                 });
             } else {
                 throw new Error('Failed to generate checkout URL');
             }
         } catch (error) {
             console.error('[PaymentController] Error:', error.message);
-            res.status(500).json({ 
+            res.status(500).json({
                 error: 'Failed to initiate payment',
                 details: error.message
             });
@@ -117,16 +117,16 @@ const paymentController = {
 
             if (!webId) {
                 console.error('[CashMaal] CASHMAAL_WEB_ID or CASHMAL_WEB_ID is missing from env. Current Env Keys:', Object.keys(process.env));
-                return res.status(500).json({ 
+                return res.status(500).json({
                     error: 'CashMaal Web ID is not configured in backend environment',
                     detected_env_keys: Object.keys(process.env)
                 });
             }
 
             const orderId = `ORD_${userId}_${Date.now()}`;
-            
+
             const frontendBase = (process.env.FRONTEND_URL || 'https://bp999.site').replace(/\/$/, '');
-            
+
             // CashMaal SCI Parameters (Exactly as per screenshot)
             const params = {
                 web_id: webId,
@@ -140,15 +140,15 @@ const paymentController = {
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
-            
-            res.json({ 
+
+            res.json({
                 params: params,
                 target_url: `https://cmaal.com/Pay/`,
-                order_id: orderId 
+                order_id: orderId
             });
         } catch (error) {
             console.error('[CashMaal] Fatal Error:', error.message, error.stack);
-            res.status(500).json({ 
+            res.status(500).json({
                 error: 'Failed to initiate CashMaal payment',
                 details: error.message
             });
@@ -223,15 +223,15 @@ const paymentController = {
         try {
             console.log('[Webhook] Received Safepay Webhook Payload Keys:', Object.keys(req.body));
             console.log('[Webhook] Received Safepay Webhook Payload:', JSON.stringify(req.body));
-            
+
             // Handle both Safepay v1 and v2 structures
             const status = req.body.status || req.body.state || req.body.data?.state || req.body.tracker?.state || req.body.data?.status;
             const amount = req.body.amount || req.body.data?.amount || req.body.tracker?.amount;
-            
+
             // Search everywhere for client_order_id or userId
             let client_order_id = req.body.reference || req.body.data?.reference || req.body.client_order_id || req.body.metadata?.order_id || req.body.data?.metadata?.userId;
             let directUserId = req.body.userId || req.body.metadata?.userId || req.body.data?.metadata?.userId || req.body.data?.userId;
-            
+
             if (!client_order_id && !directUserId) {
                 // Recursive search for ORD_ pattern or userId
                 const findData = (obj) => {
@@ -255,11 +255,11 @@ const paymentController = {
             console.log('[Webhook] Debug Info:', { status, client_order_id, directUserId, amount });
 
             // Check for various success indicators
-            const isSuccess = 
-                status === 'success' || 
-                status === 'paid' || 
-                status === 'PAID' || 
-                status === 'TRACKER_ENDED' || 
+            const isSuccess =
+                status === 'success' ||
+                status === 'paid' ||
+                status === 'PAID' ||
+                status === 'TRACKER_ENDED' ||
                 status === 'completed';
 
             if (isSuccess && (client_order_id || directUserId)) {
@@ -298,7 +298,7 @@ const paymentController = {
                 // 2. Update balance
                 const { error: updateError } = await supabase
                     .from('profiles')
-                    .update({ 
+                    .update({
                         balance: newBalance,
                         updated_at: new Date().toISOString()
                     })
@@ -369,13 +369,13 @@ const paymentController = {
                 throw insertError;
             }
 
-            res.status(200).json({ 
+            res.status(200).json({
                 message: 'Manual deposit submitted successfully',
-                data: data 
+                data: data
             });
         } catch (error) {
             console.error('[ManualDeposit] Error:', error.message);
-            res.status(500).json({ 
+            res.status(500).json({
                 error: 'Failed to submit manual deposit',
                 details: error.message
             });
