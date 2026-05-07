@@ -142,7 +142,7 @@ const paymentController = {
             console.log('[CashMaal] Parameters prepared:', params);
 
             const queryString = querystring.stringify(params);
-            const checkoutUrl = `https://www.cashmaal.com/Pay/?${queryString}`;
+            const checkoutUrl = `https://www.cashmaal.net/Pay/?${queryString}`;
 
             console.log('[CashMaal] Generated URL:', checkoutUrl);
             
