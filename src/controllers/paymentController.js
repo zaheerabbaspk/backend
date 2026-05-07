@@ -132,8 +132,8 @@ const paymentController = {
                 web_id: webId,
                 amount: parseFloat(amount),
                 currency: 'PKR',
-                succes_url: `${frontendBase}/home?payment=success`,
-                cancel_url: `${frontendBase}/deposit?payment=cancelled`,
+                success_url: `${frontendBase}/home`,
+                cancel_url: `${frontendBase}/deposit`,
                 client_email: userEmail || '',
                 order_id: orderId,
                 addi_info: userId
