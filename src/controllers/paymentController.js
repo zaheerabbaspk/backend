@@ -10,6 +10,9 @@ const BASE_URL = SAFEPAY_ENV === 'sandbox'
     ? 'https://sandbox.api.getsafepay.com' 
     : 'https://api.getsafepay.com';
 
+const CASHMAAL_WEB_ID = process.env.CASHMAAL_WEB_ID;
+const CASHMAAL_IPN_KEY = process.env.CASHMAAL_IPN_KEY;
+
 const paymentController = {
     createOrder: async (req, res) => {
         try {
@@ -98,6 +101,112 @@ const paymentController = {
                 error: 'Failed to initiate payment',
                 details: error.message
             });
+        }
+    },
+
+    createCashMaalOrder: async (req, res) => {
+        try {
+            const { amount, userId, userEmail } = req.body;
+
+            if (!amount || !userId) {
+                return res.status(400).json({ error: 'Amount and UserId are required' });
+            }
+
+            if (!CASHMAAL_WEB_ID) {
+                return res.status(500).json({ error: 'CashMaal Web ID is not configured' });
+            }
+
+            const orderId = `ORD_${userId}_${Date.now()}`;
+            
+            // CashMaal SCI Parameters
+            const params = {
+                pay_ee: CASHMAAL_WEB_ID,
+                unit: 'PKR',
+                amount: parseFloat(amount),
+                order_id: orderId,
+                client_email: userEmail || '',
+                success_url: `${process.env.FRONTEND_URL || 'http://localhost:8100'}/home?payment=success`,
+                cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:8100'}/deposit?payment=cancelled`,
+                additional_info: userId
+            };
+
+            // CashMaal usually expects a POST request or a direct link with params
+            // We can return the URL for the frontend to redirect
+            const queryString = new URLSearchParams(params).toString();
+            const checkoutUrl = `https://www.cashmaal.com/Pay/?${queryString}`;
+
+            console.log('[CashMaal] Created Order:', orderId, 'for User:', userId);
+            
+            res.json({ 
+                url: checkoutUrl,
+                order_id: orderId 
+            });
+        } catch (error) {
+            console.error('[CashMaal] Error:', error.message);
+            res.status(500).json({ error: 'Failed to initiate CashMaal payment' });
+        }
+    },
+
+    handleCashMaalWebhook: async (req, res) => {
+        try {
+            console.log('[CashMaal Webhook] Received Payload:', JSON.stringify(req.body));
+
+            const { ipn_key, status, amount, order_id, additional_info, transaction_id } = req.body;
+
+            // 1. Verify IPN Key
+            if (ipn_key !== CASHMAAL_IPN_KEY) {
+                console.error('[CashMaal Webhook] Invalid IPN Key');
+                return res.status(400).send('Invalid IPN Key');
+            }
+
+            // 2. Check Status (1 = Success)
+            if (status === '1') {
+                const userId = additional_info || order_id.split('_')[1];
+                const depositAmount = parseFloat(amount);
+
+                console.log(`[CashMaal Webhook] Success! User: ${userId}, Amount: ${depositAmount}`);
+
+                // Update Profile Balance
+                const { data: profile, error: fetchError } = await supabase
+                    .from('profiles')
+                    .select('balance')
+                    .eq('id', userId)
+                    .single();
+
+                if (fetchError || !profile) {
+                    console.error('[CashMaal Webhook] User not found:', userId);
+                    return res.status(200).send('User not found');
+                }
+
+                const newBalance = (parseFloat(profile.balance) || 0) + depositAmount;
+
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+                    .eq('id', userId);
+
+                if (updateError) {
+                    console.error('[CashMaal Webhook] Balance update failed:', updateError.message);
+                    return res.status(500).send('Database Error');
+                }
+
+                // Record transaction (optional)
+                await supabase.from('transactions').insert({
+                    user_id: userId,
+                    amount: depositAmount,
+                    type: 'deposit',
+                    method: 'cashmaal',
+                    reference: transaction_id,
+                    status: 'completed'
+                }).select();
+
+                console.log(`[CashMaal Webhook] Wallet Updated! New Balance: ${newBalance}`);
+            }
+
+            res.status(200).send('OK');
+        } catch (error) {
+            console.error('[CashMaal Webhook] Fatal Error:', error.message);
+            res.status(500).send('Internal Server Error');
         }
     },
 

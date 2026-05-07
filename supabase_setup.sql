@@ -20,6 +20,7 @@ CREATE TABLE public.profiles (
   balance DECIMAL(12, 2) DEFAULT 0.00,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'blocked', 'suspended')),
   package TEXT DEFAULT 'Free',
+  withdrawal_password TEXT, -- 6-digit PIN for withdrawals
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

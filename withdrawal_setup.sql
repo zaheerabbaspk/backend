@@ -1,4 +1,15 @@
--- 1. Drop existing policies to prevent "policy already exists" errors
+-- 1. Create withdrawal_accounts table first
+CREATE TABLE IF NOT EXISTS public.withdrawal_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  method_key TEXT NOT NULL,
+  method_name TEXT NOT NULL,
+  real_name TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 2. Drop existing policies to prevent "policy already exists" errors
 DROP POLICY IF EXISTS "Users can insert their own requests" ON public.withdrawal_requests;
 DROP POLICY IF EXISTS "Users can view their own requests" ON public.withdrawal_requests;
 DROP POLICY IF EXISTS "Admins can do everything" ON public.withdrawal_requests;

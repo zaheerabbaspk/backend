@@ -10,6 +10,10 @@ router.post('/create-order', paymentController.createOrder);
 // Manual deposit proof submission
 router.post('/submit-manual-deposit', upload.single('proof'), paymentController.submitManualDeposit);
 
+// CashMaal Integration
+router.post('/create-cashmaal-order', paymentController.createCashMaalOrder);
+router.post('/cashmaal-webhook', paymentController.handleCashMaalWebhook);
+
 // Safepay Webhook endpoint
 router.get('/webhook', (req, res) => res.send('Webhook endpoint is active (GET)!'));
 router.post('/webhook', paymentController.handleWebhook);
