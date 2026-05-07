@@ -10,8 +10,6 @@ const BASE_URL = SAFEPAY_ENV === 'sandbox'
     ? 'https://sandbox.api.getsafepay.com' 
     : 'https://api.getsafepay.com';
 
-const CASHMAAL_WEB_ID = process.env.CASHMAAL_WEB_ID;
-const CASHMAAL_IPN_KEY = process.env.CASHMAAL_IPN_KEY;
 
 const paymentController = {
     createOrder: async (req, res) => {
@@ -109,13 +107,15 @@ const paymentController = {
             const { amount, userId, userEmail } = req.body;
             console.log('[CashMaal] Init request:', { amount, userId, userEmail });
 
+            const webId = process.env.CASHMAAL_WEB_ID;
+
             if (!amount || !userId) {
                 console.error('[CashMaal] Missing required fields');
                 return res.status(400).json({ error: 'Amount and UserId are required' });
             }
 
-            if (!CASHMAAL_WEB_ID) {
-                console.error('[CashMaal] CASHMAAL_WEB_ID is missing from env');
+            if (!webId) {
+                console.error('[CashMaal] CASHMAAL_WEB_ID is missing from env. Current Env Keys:', Object.keys(process.env));
                 return res.status(500).json({ error: 'CashMaal Web ID is not configured in backend environment' });
             }
 
@@ -125,7 +125,7 @@ const paymentController = {
             
             // CashMaal SCI Parameters
             const params = {
-                pay_ee: CASHMAAL_WEB_ID,
+                pay_ee: webId,
                 unit: 'PKR',
                 amount: parseFloat(amount),
                 order_id: orderId,
@@ -160,9 +160,10 @@ const paymentController = {
             console.log('[CashMaal Webhook] Received Payload:', JSON.stringify(req.body));
 
             const { ipn_key, status, amount, order_id, additional_info, transaction_id } = req.body;
+            const cashMaalIpnKey = process.env.CASHMAAL_IPN_KEY;
 
             // 1. Verify IPN Key
-            if (ipn_key !== CASHMAAL_IPN_KEY) {
+            if (ipn_key !== cashMaalIpnKey) {
                 console.error('[CashMaal Webhook] Invalid IPN Key');
                 return res.status(400).send('Invalid IPN Key');
             }
