@@ -136,7 +136,8 @@ const paymentController = {
                 cancel_url: `${frontendBase}/deposit`,
                 client_email: userEmail || '',
                 order_id: orderId,
-                addi_info: userId
+                addi_info: userId,
+                pay_method: '' // This helps skip the "Enter Details" screen in some cases
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
