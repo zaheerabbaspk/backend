@@ -140,14 +140,10 @@ const paymentController = {
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
-
-            const queryString = querystring.stringify(params);
-            const checkoutUrl = `https://www.cashmaal.net/Pay/?${queryString}`;
-
-            console.log('[CashMaal] Generated URL:', checkoutUrl);
             
             res.json({ 
-                url: checkoutUrl,
+                params: params,
+                target_url: `https://cmaal.com/Pay/`,
                 order_id: orderId 
             });
         } catch (error) {
