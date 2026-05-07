@@ -108,7 +108,7 @@ const paymentController = {
             const { amount, userId, userEmail } = req.body;
             console.log('[CashMaal] Init request:', { amount, userId, userEmail });
 
-            const webId = process.env.CASHMAAL_WEB_ID;
+            const webId = process.env.CASHMAAL_WEB_ID || process.env.CASHMAL_WEB_ID;
 
             if (!amount || !userId) {
                 console.error('[CashMaal] Missing required fields');
@@ -116,24 +116,27 @@ const paymentController = {
             }
 
             if (!webId) {
-                console.error('[CashMaal] CASHMAAL_WEB_ID is missing from env. Current Env Keys:', Object.keys(process.env));
-                return res.status(500).json({ error: 'CashMaal Web ID is not configured in backend environment' });
+                console.error('[CashMaal] CASHMAAL_WEB_ID or CASHMAL_WEB_ID is missing from env. Current Env Keys:', Object.keys(process.env));
+                return res.status(500).json({ 
+                    error: 'CashMaal Web ID is not configured in backend environment',
+                    detected_env_keys: Object.keys(process.env)
+                });
             }
 
             const orderId = `ORD_${userId}_${Date.now()}`;
             
             const frontendBase = (process.env.FRONTEND_URL || 'https://bp999.site').replace(/\/$/, '');
             
-            // CashMaal SCI Parameters
+            // CashMaal SCI Parameters (Exactly as per screenshot)
             const params = {
-                pay_ee: webId,
-                unit: 'PKR',
+                web_id: webId,
                 amount: parseFloat(amount),
-                order_id: orderId,
-                client_email: userEmail || '',
-                success_url: `${frontendBase}/home?payment=success`,
+                currency: 'PKR',
+                succes_url: `${frontendBase}/home?payment=success`,
                 cancel_url: `${frontendBase}/deposit?payment=cancelled`,
-                additional_info: userId
+                client_email: userEmail || '',
+                order_id: orderId,
+                addi_info: userId
             };
 
             console.log('[CashMaal] Parameters prepared:', params);
@@ -160,8 +163,8 @@ const paymentController = {
         try {
             console.log('[CashMaal Webhook] Received Payload:', JSON.stringify(req.body));
 
-            const { ipn_key, status, amount, order_id, additional_info, transaction_id } = req.body;
-            const cashMaalIpnKey = process.env.CASHMAAL_IPN_KEY;
+            const { ipn_key, status, amount, order_id, addi_info, transaction_id } = req.body;
+            const cashMaalIpnKey = process.env.CASHMAAL_IPN_KEY || process.env.CASHMAL_IPN_KEY;
 
             // 1. Verify IPN Key
             if (ipn_key !== cashMaalIpnKey) {
@@ -171,7 +174,7 @@ const paymentController = {
 
             // 2. Check Status (1 = Success)
             if (status === '1') {
-                const userId = additional_info || order_id.split('_')[1];
+                const userId = addi_info || order_id.split('_')[1];
                 const depositAmount = parseFloat(amount);
 
                 console.log(`[CashMaal Webhook] Success! User: ${userId}, Amount: ${depositAmount}`);
