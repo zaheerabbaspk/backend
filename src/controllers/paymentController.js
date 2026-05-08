@@ -159,23 +159,39 @@ const paymentController = {
 
     handleCashMaalWebhook: async (req, res) => {
         try {
+            console.log('[CashMaal Webhook] Received Headers:', JSON.stringify(req.headers));
             console.log('[CashMaal Webhook] Received Payload:', JSON.stringify(req.body));
 
-            const { ipn_key, status, amount, order_id, addi_info, transaction_id } = req.body;
-            const cashMaalIpnKey = process.env.CASHMAAL_IPN_KEY || process.env.CASHMAL_IPN_KEY;
+            const {
+                status,
+                amount,
+                currency,
+                order_id,
+                transaction_id,
+                addi_info,
+                ipn_key
+            } = req.body;
+
+            const configIpnKey = process.env.CASHMAAL_IPN_KEY;
 
             // 1. Verify IPN Key
-            if (ipn_key !== cashMaalIpnKey) {
-                console.error('[CashMaal Webhook] Invalid IPN Key');
+            if (ipn_key !== configIpnKey) {
+                console.error(`[CashMaal Webhook] IPN Key Mismatch! Received: ${ipn_key}, Expected: ${configIpnKey}`);
                 return res.status(400).send('Invalid IPN Key');
             }
 
             // 2. Check Status (1 = Success)
             if (status === '1') {
-                const userId = addi_info || order_id.split('_')[1];
+                // Determine User ID (CashMaal sometimes uses addi_info, or we can parse order_id)
+                const userId = addi_info || (order_id ? order_id.split('_')[1] : null);
                 const depositAmount = parseFloat(amount);
 
-                console.log(`[CashMaal Webhook] Success! User: ${userId}, Amount: ${depositAmount}`);
+                if (!userId) {
+                    console.error('[CashMaal Webhook] Could not determine User ID from payload');
+                    return res.status(200).send('No User ID found');
+                }
+
+                console.log(`[CashMaal Webhook] Processing Success! User: ${userId}, Amount: ${depositAmount}`);
 
                 // Update Profile Balance
                 const { data: profile, error: fetchError } = await supabase
