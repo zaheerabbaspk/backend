@@ -123,25 +123,26 @@ const paymentController = {
                 });
             }
 
-            const orderId = `ORD_${userId}_${Date.now()}`;
+            const orderId = `CM${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
             const frontendBase = (process.env.FRONTEND_URL || 'https://bp999.site').replace(/\/$/, '');
 
-            // CashMaal SCI Parameters (Exactly as per screenshot)
+            // CashMaal SCI Parameters
             const params = {
                 web_id: webId,
                 amount: parseFloat(amount),
                 currency: 'PKR',
-                success_url: `${frontendBase}/home`,
-                cancel_url: `${frontendBase}/deposit`,
+                success_url: `${frontendBase}/home?payment=success`,
+                cancel_url: `${frontendBase}/deposit?payment=cancelled`,
                 client_email: userEmail || '',
                 order_id: orderId,
                 addi_info: userId,
-                client_name: 'User_' + userId.substring(0, 5),
-                pay_method: 'as' // 'as' usually skips to the full local methods list
+                client_name: 'User_' + userId.substring(0, 5) + '_' + Math.floor(Math.random() * 100),
+                pay_method: 'as' 
             };
 
-            console.log('[CashMaal] Parameters prepared:', params);
+            console.log('[CashMaal] Parameters prepared for Order:', orderId);
+            console.log('[CashMaal] Full Params:', JSON.stringify(params));
 
             res.json({
                 params: params,
@@ -159,7 +160,6 @@ const paymentController = {
 
     handleCashMaalWebhook: async (req, res) => {
         try {
-            console.log('[CashMaal Webhook] Received Headers:', JSON.stringify(req.headers));
             console.log('[CashMaal Webhook] Received Payload:', JSON.stringify(req.body));
 
             const {
@@ -176,24 +176,36 @@ const paymentController = {
 
             // 1. Verify IPN Key
             if (ipn_key !== configIpnKey) {
-                console.error(`[CashMaal Webhook] IPN Key Mismatch! Received: ${ipn_key}, Expected: ${configIpnKey}`);
+                console.error(`[CashMaal Webhook] IPN Key Mismatch! Received: ${ipn_key}`);
                 return res.status(400).send('Invalid IPN Key');
             }
 
             // 2. Check Status (1 = Success)
             if (status === '1') {
-                // Determine User ID (CashMaal sometimes uses addi_info, or we can parse order_id)
-                const userId = addi_info || (order_id ? order_id.split('_')[1] : null);
+                const userId = addi_info;
                 const depositAmount = parseFloat(amount);
+                const txId = transaction_id || order_id;
 
                 if (!userId) {
-                    console.error('[CashMaal Webhook] Could not determine User ID from payload');
-                    return res.status(200).send('No User ID found');
+                    console.error('[CashMaal Webhook] Missing User ID (addi_info)');
+                    return res.status(200).send('No User ID');
+                }
+
+                // 3. Prevent Duplicate Processing
+                const { data: existingTx } = await supabase
+                    .from('payment_proofs')
+                    .select('id')
+                    .eq('transaction_id', txId)
+                    .single();
+
+                if (existingTx) {
+                    console.log('[CashMaal Webhook] Transaction already processed:', txId);
+                    return res.status(200).send('Already Processed');
                 }
 
                 console.log(`[CashMaal Webhook] Processing Success! User: ${userId}, Amount: ${depositAmount}`);
 
-                // Update Profile Balance
+                // 4. Get Current Balance
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('balance')
@@ -205,8 +217,8 @@ const paymentController = {
                     return res.status(200).send('User not found');
                 }
 
+                // 5. Update Balance
                 const newBalance = (parseFloat(profile.balance) || 0) + depositAmount;
-
                 const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ balance: newBalance, updated_at: new Date().toISOString() })
@@ -217,14 +229,14 @@ const paymentController = {
                     return res.status(500).send('Database Error');
                 }
 
-                // Log to payment_proofs so it shows in Admin Panel
+                // 6. Log Transaction
                 await supabase.from('payment_proofs').insert({
                     user_id: userId,
                     amount: depositAmount,
                     status: 'approved',
                     payment_method: 'CashMaal',
-                    transaction_id: transaction_id || order_id,
-                    proof_image: 'https://www.cashmaal.com/assets/images/logo.png', // Dummy logo for gateway payments
+                    transaction_id: txId,
+                    proof_image: 'https://www.cashmaal.com/assets/images/logo.png',
                     rejection_reason: 'Automatic Gateway Payment',
                     submitted_at: new Date().toISOString()
                 });
@@ -233,7 +245,7 @@ const paymentController = {
                 return res.status(200).send('Success');
             }
 
-            res.status(200).send('IPN Received');
+            res.status(200).send('IPN Received (Non-success status)');
         } catch (error) {
             console.error('[CashMaal Webhook] Fatal Error:', error.message);
             res.status(500).send('Internal Server Error');
