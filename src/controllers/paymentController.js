@@ -217,14 +217,16 @@ const paymentController = {
                     return res.status(500).send('Database Error');
                 }
 
-                // Log to manual_deposits so it shows in Admin Panel under "Manual Deposits -> Approved"
-                await supabase.from('manual_deposits').insert({
+                // Log to payment_proofs so it shows in Admin Panel
+                await supabase.from('payment_proofs').insert({
                     user_id: userId,
                     amount: depositAmount,
                     status: 'approved',
                     payment_method: 'CashMaal',
                     transaction_id: transaction_id || order_id,
-                    created_at: new Date().toISOString()
+                    proof_image: 'https://www.cashmaal.com/assets/images/logo.png', // Dummy logo for gateway payments
+                    rejection_reason: 'Automatic Gateway Payment',
+                    submitted_at: new Date().toISOString()
                 });
 
                 console.log(`[CashMaal Webhook] Success! User: ${userId}, New Balance: ${newBalance}`);
