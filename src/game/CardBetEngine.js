@@ -43,7 +43,7 @@ class CardBetEngine {
         this.timeLeft = Math.floor(this.waitingTime / 1000);
         this.manualWinner = null;
         this.winningHandId = null;
-        
+
         // Reset hands
         this.hands.forEach(h => {
             h.revealed = false;
@@ -70,11 +70,11 @@ class CardBetEngine {
 
     async revealResult() {
         this.state = GameState.REVEALING;
-        
+
         // 1. Check local manualWinner (from socket) first, then Supabase
         let manualWinnerId = this.manualWinner;
         this.manualWinner = null; // Reset local immediately for next round
-        
+
         if (manualWinnerId === null) {
             try {
                 const { data } = await supabase
@@ -82,11 +82,11 @@ class CardBetEngine {
                     .select('manual_winner_id')
                     .eq('game_name', 'card-bet')
                     .single();
-                
+
                 if (data && data.manual_winner_id !== null) {
                     manualWinnerId = data.manual_winner_id;
                     console.log(`[CardBet] Found Manual Winner in Supabase: ${manualWinnerId}`);
-                    
+
                     // Clear Supabase immediately so it doesn't repeat next round
                     await supabase
                         .from('game_controls')
