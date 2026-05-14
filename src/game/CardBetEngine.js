@@ -141,65 +141,41 @@ class CardBetEngine {
             });
         } else {
             // PROBABILITY / RNG LOGIC
-            let c8 = drawCard();
-            let c9 = drawCard();
-            let c10 = drawCard();
-            let c11 = drawCard();
+            // 1. Initial draw: 1 card for each
+            this.hands.forEach(h => {
+                const card = drawCard();
+                h.cards = [card];
+            });
 
-            this.hands[0].cards = [c8];
-            this.hands[1].cards = [c9];
-            this.hands[2].cards = [c10];
-            this.hands[3].cards = [c11];
+            const calculateTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
 
-            let topTotal = c8.score + c9.score;
-            let bottomTotal = c10.score + c11.score;
-
-            // GLOBAL REMATCH: If Top and Bottom sides are tied
-            while (topTotal === bottomTotal) {
-                console.log(`[CardBet] Side Tie Rematch: Top ${topTotal} vs Bottom ${bottomTotal}`);
-                const extraC8 = drawCard();
-                const extraC9 = drawCard();
-                const extraC10 = drawCard();
-                const extraC11 = drawCard();
-
-                this.hands[0].cards.push(extraC8);
-                this.hands[1].cards.push(extraC9);
-                this.hands[2].cards.push(extraC10);
-                this.hands[3].cards.push(extraC11);
-
-                topTotal += extraC8.score + extraC9.score;
-                bottomTotal += extraC10.score + extraC11.score;
-            }
-
-            if (topTotal > bottomTotal) {
-                // Top side wins - now pick winner within Top
-                let handA = 0;
-                let handB = 1;
+            // 2. Targeted Rematch Loop
+            let winnerFound = false;
+            while (!winnerFound) {
+                // Get all current totals
+                const totals = this.hands.map((_, idx) => calculateTotal(idx));
+                const maxScore = Math.max(...totals);
                 
-                // Compare the total score of all cards in each hand
-                const getHandTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
+                // Find how many hands have this max score
+                const topHands = [];
+                totals.forEach((score, idx) => {
+                    if (score === maxScore) topHands.push(idx);
+                });
 
-                while (getHandTotal(handA) === getHandTotal(handB)) {
-                    console.log(`[CardBet] Hand Tie Rematch: Hand ${handA} vs Hand ${handB}`);
-                    this.hands[handA].cards.push(drawCard());
-                    this.hands[handB].cards.push(drawCard());
+                if (topHands.length === 1) {
+                    // Unique winner!
+                    this.winningHandId = topHands[0];
+                    winnerFound = true;
+                } else {
+                    // TIE: Draw one more card ONLY for the tied hands
+                    console.log(`[CardBet] Targeted Rematch for hands: ${topHands.join(', ')} at score ${maxScore}`);
+                    topHands.forEach(idx => {
+                        this.hands[idx].cards.push(drawCard());
+                    });
                 }
-                this.winningHandId = getHandTotal(handA) > getHandTotal(handB) ? handA : handB;
-            } else {
-                // Bottom side wins - now pick winner within Bottom
-                let handA = 2;
-                let handB = 3;
-
-                const getHandTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
-
-                while (getHandTotal(handA) === getHandTotal(handB)) {
-                    console.log(`[CardBet] Hand Tie Rematch: Hand ${handA} vs Hand ${handB}`);
-                    this.hands[handA].cards.push(drawCard());
-                    this.hands[handB].cards.push(drawCard());
-                }
-                this.winningHandId = getHandTotal(handA) > getHandTotal(handB) ? handA : handB;
             }
-            console.log(`[CardBet] Final RNG Winner: ${this.winningHandId} (Side Totals - Top: ${topTotal}, Bottom: ${bottomTotal})`);
+            
+            console.log(`[CardBet] Final RNG Winner: ${this.winningHandId} (Totals: ${this.hands.map((_, i) => calculateTotal(i)).join(', ')})`);
         }
 
         this.hands.forEach(h => h.revealed = true);
