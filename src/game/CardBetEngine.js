@@ -136,7 +136,6 @@ class CardBetEngine {
             }
         }, 1000);
     }
-    }
 
     broadcastState() {
         if (this.io) {
