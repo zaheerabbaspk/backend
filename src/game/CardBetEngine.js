@@ -71,27 +71,31 @@ class CardBetEngine {
     async revealResult() {
         this.state = GameState.REVEALING;
         
-        // 1. Fetch manual winner from Supabase
-        let manualWinnerId = null;
-        try {
-            const { data } = await supabase
-                .from('game_controls')
-                .select('manual_winner_id')
-                .eq('game_name', 'card-bet')
-                .single();
-            
-            if (data && data.manual_winner_id !== null) {
-                manualWinnerId = data.manual_winner_id;
-                console.log(`[CardBet] Found Manual Winner in Supabase: ${manualWinnerId}`);
-                
-                // Clear it immediately so it doesn't repeat next round
-                await supabase
+        // 1. Check local manualWinner (from socket) first, then Supabase
+        let manualWinnerId = this.manualWinner;
+        this.manualWinner = null; // Reset local immediately for next round
+        
+        if (manualWinnerId === null) {
+            try {
+                const { data } = await supabase
                     .from('game_controls')
-                    .update({ manual_winner_id: null })
-                    .eq('game_name', 'card-bet');
+                    .select('manual_winner_id')
+                    .eq('game_name', 'card-bet')
+                    .single();
+                
+                if (data && data.manual_winner_id !== null) {
+                    manualWinnerId = data.manual_winner_id;
+                    console.log(`[CardBet] Found Manual Winner in Supabase: ${manualWinnerId}`);
+                    
+                    // Clear Supabase immediately so it doesn't repeat next round
+                    await supabase
+                        .from('game_controls')
+                        .update({ manual_winner_id: null })
+                        .eq('game_name', 'card-bet');
+                }
+            } catch (err) {
+                console.error('[CardBet] Supabase fetch error:', err);
             }
-        } catch (err) {
-            console.error('[CardBet] Supabase fetch error:', err);
         }
 
         // --- Card Generation Logic ---
