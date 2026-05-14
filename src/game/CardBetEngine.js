@@ -1,5 +1,5 @@
 const GameState = {
-    WAITING: 'WAITING',
+    BETTING: 'BETTING',
     REVEALING: 'REVEALING',
     FINISHED: 'FINISHED'
 };
@@ -35,11 +35,11 @@ class CardBetEngine {
 
     start() {
         console.log('Card Bet Engine started');
-        this.startWaiting();
+        this.startBetting();
     }
 
-    startWaiting() {
-        this.state = GameState.WAITING;
+    startBetting() {
+        this.state = GameState.BETTING;
         this.timeLeft = Math.floor(this.waitingTime / 1000);
         this.manualWinner = null;
         this.winningHandId = null;
@@ -132,7 +132,7 @@ class CardBetEngine {
             } else {
                 clearInterval(this.countdownInterval);
                 this.state = GameState.FINISHED;
-                this.startWaiting(); // Back to 10s betting
+                this.startBetting(); // Back to 10s betting
             }
         }, 1000);
     }
