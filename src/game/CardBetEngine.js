@@ -92,12 +92,37 @@ class CardBetEngine {
             this.winningHandId = Math.floor(Math.random() * 4);
         }
 
-        // Assign cards (simplified logic: winning hand gets high card, others get low)
+        // --- Card Generation Logic ---
+        const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+        const values = ['8', '9', '10', 'J', 'Q', 'K', 'A']; // Real game values
+        
+        const getCardScore = (val) => values.indexOf(val);
+
+        const pool = [];
+        const usedCards = new Set();
+
+        while(pool.length < 4) {
+            const suit = suits[Math.floor(Math.random() * suits.length)];
+            const value = values[Math.floor(Math.random() * values.length)];
+            const cardKey = `${value}-${suit}`;
+            
+            if (!usedCards.has(cardKey)) {
+                usedCards.add(cardKey);
+                pool.push({ value, suit, score: getCardScore(value) });
+            }
+        }
+
+        // Sort pool so we can assign highest to winner
+        pool.sort((a, b) => b.score - a.score);
+
+        const winningCard = pool.shift(); // The absolute highest card goes to the winner
+        
         this.hands.forEach((h, idx) => {
             if (idx === this.winningHandId) {
-                h.card = { value: 'A', suit: 'spades' }; // Example winning card
+                h.card = winningCard;
             } else {
-                h.card = { value: '2', suit: 'hearts' }; // Example losing card
+                // Assign from the remaining 3 cards (which are all lower than winningCard)
+                h.card = pool.shift();
             }
             h.revealed = true;
         });
