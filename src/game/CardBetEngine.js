@@ -100,8 +100,13 @@ class CardBetEngine {
 
         // --- Card Generation Logic ---
         const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-        const values = ['6', '7', '8', '9', '10', 'J', 'Q', 'K']; // Added 6 and 7 as requested
-        const getCardScore = (val) => values.indexOf(val);
+        const values = ['6', '7', '8', '9', '10', 'J', 'Q', 'K']; 
+        const getCardScore = (val) => {
+            if (val === 'K') return 13;
+            if (val === 'Q') return 12;
+            if (val === 'J') return 11;
+            return parseInt(val);
+        };
 
         const usedCards = new Set();
         const drawCard = () => {
@@ -123,61 +128,78 @@ class CardBetEngine {
             this.winningHandId = manualWinnerId;
             // For manual winner, we just give them a high card and others lower ones
             this.hands.forEach((h, idx) => {
+                let card = drawCard();
                 if (idx === this.winningHandId) {
-                    h.cards = [{ value: 'K', suit: 'spades', score: values.length - 1 }];
+                    const highCards = ['J', 'Q', 'K'];
+                    const val = highCards[Math.floor(Math.random() * highCards.length)];
+                    h.cards = [{ value: val, suit: card.suit, score: getCardScore(val) }];
                 } else {
-                    h.cards = [{ value: '8', suit: 'hearts', score: 0 }];
+                    const lowCards = ['6', '7', '8'];
+                    const val = lowCards[Math.floor(Math.random() * lowCards.length)];
+                    h.cards = [{ value: val, suit: card.suit, score: getCardScore(val) }];
                 }
             });
         } else {
             // PROBABILITY / RNG LOGIC
-            const c8 = drawCard();
-            const c9 = drawCard();
-            const c10 = drawCard();
-            const c11 = drawCard();
+            let c8 = drawCard();
+            let c9 = drawCard();
+            let c10 = drawCard();
+            let c11 = drawCard();
 
             this.hands[0].cards = [c8];
             this.hands[1].cards = [c9];
             this.hands[2].cards = [c10];
             this.hands[3].cards = [c11];
 
-            const topTotal = c8.score + c9.score;
-            const bottomTotal = c10.score + c11.score;
+            let topTotal = c8.score + c9.score;
+            let bottomTotal = c10.score + c11.score;
 
-            if (topTotal >= bottomTotal) {
-                // Top side wins
-                let cardA = c8;
-                let cardB = c9;
+            // GLOBAL REMATCH: If Top and Bottom sides are tied
+            while (topTotal === bottomTotal) {
+                console.log(`[CardBet] Side Tie Rematch: Top ${topTotal} vs Bottom ${bottomTotal}`);
+                const extraC8 = drawCard();
+                const extraC9 = drawCard();
+                const extraC10 = drawCard();
+                const extraC11 = drawCard();
+
+                this.hands[0].cards.push(extraC8);
+                this.hands[1].cards.push(extraC9);
+                this.hands[2].cards.push(extraC10);
+                this.hands[3].cards.push(extraC11);
+
+                topTotal += extraC8.score + extraC9.score;
+                bottomTotal += extraC10.score + extraC11.score;
+            }
+
+            if (topTotal > bottomTotal) {
+                // Top side wins - now pick winner within Top
                 let handA = 0;
                 let handB = 1;
+                
+                // Compare the total score of all cards in each hand
+                const getHandTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
 
-                // REMATCH LOOP: Keep drawing until one is bigger
-                while (cardA.score === cardB.score) {
-                    console.log(`[CardBet] Rematch for hands ${handA} & ${handB}`);
-                    cardA = drawCard();
-                    cardB = drawCard();
-                    this.hands[handA].cards.push(cardA);
-                    this.hands[handB].cards.push(cardB);
+                while (getHandTotal(handA) === getHandTotal(handB)) {
+                    console.log(`[CardBet] Hand Tie Rematch: Hand ${handA} vs Hand ${handB}`);
+                    this.hands[handA].cards.push(drawCard());
+                    this.hands[handB].cards.push(drawCard());
                 }
-                this.winningHandId = cardA.score > cardB.score ? handA : handB;
+                this.winningHandId = getHandTotal(handA) > getHandTotal(handB) ? handA : handB;
             } else {
-                // Bottom side wins
-                let cardA = c10;
-                let cardB = c11;
+                // Bottom side wins - now pick winner within Bottom
                 let handA = 2;
                 let handB = 3;
 
-                // REMATCH LOOP
-                while (cardA.score === cardB.score) {
-                    console.log(`[CardBet] Rematch for hands ${handA} & ${handB}`);
-                    cardA = drawCard();
-                    cardB = drawCard();
-                    this.hands[handA].cards.push(cardA);
-                    this.hands[handB].cards.push(cardB);
+                const getHandTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
+
+                while (getHandTotal(handA) === getHandTotal(handB)) {
+                    console.log(`[CardBet] Hand Tie Rematch: Hand ${handA} vs Hand ${handB}`);
+                    this.hands[handA].cards.push(drawCard());
+                    this.hands[handB].cards.push(drawCard());
                 }
-                this.winningHandId = cardA.score > cardB.score ? handA : handB;
+                this.winningHandId = getHandTotal(handA) > getHandTotal(handB) ? handA : handB;
             }
-            console.log(`[CardBet] RNG Winner: ${this.winningHandId} (Total Top: ${topTotal}, Bottom: ${bottomTotal})`);
+            console.log(`[CardBet] Final RNG Winner: ${this.winningHandId} (Side Totals - Top: ${topTotal}, Bottom: ${bottomTotal})`);
         }
 
         this.hands.forEach(h => h.revealed = true);
