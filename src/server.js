@@ -5,6 +5,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const socketManager = require('./sockets/socketManager');
 const gameEngine = require('./game/GameEngine');
+const cardBetEngine = require('./game/CardBetEngine');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -38,9 +39,12 @@ app.use('/api/payment', paymentRoutes);
 // Initialize Sockets
 socketManager(io);
 
-// Initialize Game Engine
+// Initialize Game Engines
 gameEngine.setIo(io);
 gameEngine.start();
+
+cardBetEngine.setIo(io);
+cardBetEngine.start();
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

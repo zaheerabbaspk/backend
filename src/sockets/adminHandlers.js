@@ -1,4 +1,5 @@
 const gameEngine = require('../game/GameEngine');
+const cardBetEngine = require('../game/CardBetEngine');
 
 module.exports = (io, socket) => {
     console.log(`Admin connected: ${socket.id}`);
@@ -6,6 +7,11 @@ module.exports = (io, socket) => {
     socket.on('manualCrash', () => {
         console.log('Admin triggered manual crash');
         gameEngine.triggerManualCrash();
+    });
+
+    socket.on('cardBet_SetWinner', (data) => {
+        console.log('Admin setting card bet winner:', data.handId);
+        cardBetEngine.setManualWinner(data.handId);
     });
 
     socket.on('requestStats', () => {
