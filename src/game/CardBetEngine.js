@@ -15,10 +15,10 @@ class CardBetEngine {
         this.waitingTime = 10000; // 10 seconds betting phase
         this.revealTime = 5000;   // 5 seconds to show cards
         this.hands = [
-            { id: 0, name: '8', backOdds: 3.8, layOdds: 3.9, revealed: false, card: null },
-            { id: 1, name: '9', backOdds: 3.0, layOdds: 3.1, revealed: false, card: null },
-            { id: 2, name: '10', backOdds: 3.0, layOdds: 3.1, revealed: false, card: null },
-            { id: 3, name: '11', backOdds: 7.6, layOdds: 7.7, revealed: false, card: null }
+            { id: 0, name: '8', backOdds: 3.8, layOdds: 3.9, revealed: false, cards: [] },
+            { id: 1, name: '9', backOdds: 3.0, layOdds: 3.1, revealed: false, cards: [] },
+            { id: 2, name: '10', backOdds: 3.0, layOdds: 3.1, revealed: false, cards: [] },
+            { id: 3, name: '11', backOdds: 7.6, layOdds: 7.7, revealed: false, cards: [] }
         ];
         this.winningHandId = null;
         this.manualWinner = null;
@@ -47,7 +47,7 @@ class CardBetEngine {
         // Reset hands
         this.hands.forEach(h => {
             h.revealed = false;
-            h.card = null;
+            h.cards = [];
         });
 
         this.broadcastState();
@@ -72,26 +72,38 @@ class CardBetEngine {
         this.state = GameState.REVEALING;
         
         // 1. Fetch manual winner from Supabase
-        let manualData = null;
+        let manualWinnerId = null;
         try {
             const { data } = await supabase
                 .from('game_controls')
                 .select('manual_winner_id')
                 .eq('game_name', 'card-bet')
                 .single();
-            manualData = data;
+            
+            if (data && data.manual_winner_id !== null) {
+                manualWinnerId = data.manual_winner_id;
+                console.log(`[CardBet] Found Manual Winner in Supabase: ${manualWinnerId}`);
+                
+                // Clear it immediately so it doesn't repeat next round
+                await supabase
+                    .from('game_controls')
+                    .update({ manual_winner_id: null })
+                    .eq('game_name', 'card-bet');
+            }
         } catch (err) {
-            console.error('[CardBet] Error fetching manual winner:', err);
+            console.error('[CardBet] Supabase fetch error:', err);
         }
 
         // --- Card Generation Logic ---
         const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-        const values = ['8', '9', '10', 'J', 'Q', 'K']; // Ace removed, King is highest
+        const values = ['8', '9', '10', 'J', 'Q', 'K']; // No Ace, King is High
         const getCardScore = (val) => values.indexOf(val);
 
-        const pool = [];
         const usedCards = new Set();
         const drawCard = () => {
+            if (usedCards.size >= suits.length * values.length) {
+                usedCards.clear(); // Reset if deck empty (unlikely in one round)
+            }
             let card;
             do {
                 const suit = suits[Math.floor(Math.random() * suits.length)];
@@ -102,59 +114,66 @@ class CardBetEngine {
             return card;
         };
 
-        // Draw initial 4 cards
-        const h8_card = drawCard();
-        const h9_card = drawCard();
-        const h10_card = drawCard();
-        const h11_card = drawCard();
-
-        // Assign initial cards
-        this.hands[0].cards = [h8_card];
-        this.hands[1].cards = [h9_card];
-        this.hands[2].cards = [h10_card];
-        this.hands[3].cards = [h11_card];
-
-        // --- Determine Winner based on Pair Comparison Logic ---
-        if (manualData && manualData.manual_winner_id !== null) {
-            this.winningHandId = manualData.manual_winner_id;
-            console.log(`[CardBet] Admin Manual Winner: ${this.winningHandId}`);
-            
-            // Force manual winner to have the absolute highest card
-            this.hands[this.winningHandId].cards = [{ value: 'K', suit: 'spades', score: values.length - 1 }];
+        // --- Execute Logic ---
+        if (manualWinnerId !== null) {
+            this.winningHandId = manualWinnerId;
+            // For manual winner, we just give them a high card and others lower ones
+            this.hands.forEach((h, idx) => {
+                if (idx === this.winningHandId) {
+                    h.cards = [{ value: 'K', suit: 'spades', score: values.length - 1 }];
+                } else {
+                    h.cards = [{ value: '8', suit: 'hearts', score: 0 }];
+                }
+            });
         } else {
-            // Pair logic: (8+9) vs (10+11)
-            const topTotal = h8_card.score + h9_card.score;
-            const bottomTotal = h10_card.score + h11_card.score;
+            // PROBABILITY / RNG LOGIC
+            const c8 = drawCard();
+            const c9 = drawCard();
+            const c10 = drawCard();
+            const c11 = drawCard();
+
+            this.hands[0].cards = [c8];
+            this.hands[1].cards = [c9];
+            this.hands[2].cards = [c10];
+            this.hands[3].cards = [c11];
+
+            const topTotal = c8.score + c9.score;
+            const bottomTotal = c10.score + c11.score;
 
             if (topTotal >= bottomTotal) {
-                // Top side wins (or tie-break top)
-                if (h8_card.score === h9_card.score) {
-                    // REMATCH for 8 and 9
-                    console.log('[CardBet] Tie Rematch for Top side!');
-                    const extra8 = drawCard();
-                    const extra9 = drawCard();
-                    this.hands[0].cards.push(extra8);
-                    this.hands[1].cards.push(extra9);
-                    this.winningHandId = extra8.score >= extra9.score ? 0 : 1;
-                } else {
-                    this.winningHandId = h8_card.score > h9_card.score ? 0 : 1;
+                // Top side wins
+                let cardA = c8;
+                let cardB = c9;
+                let handA = 0;
+                let handB = 1;
+
+                // REMATCH LOOP: Keep drawing until one is bigger
+                while (cardA.score === cardB.score) {
+                    console.log(`[CardBet] Rematch for hands ${handA} & ${handB}`);
+                    cardA = drawCard();
+                    cardB = drawCard();
+                    this.hands[handA].cards.push(cardA);
+                    this.hands[handB].cards.push(cardB);
                 }
+                this.winningHandId = cardA.score > cardB.score ? handA : handB;
             } else {
                 // Bottom side wins
-                if (h10_card.score === h11_card.score) {
-                    // REMATCH for 10 and 11
-                    console.log('[CardBet] Tie Rematch for Bottom side!');
-                    const extra10 = drawCard();
-                    const extra11 = drawCard();
-                    this.hands[2].cards.push(extra10);
-                    this.hands[3].cards.push(extra11);
-                    this.winningHandId = extra10.score >= extra11.score ? 2 : 3;
-                } else {
-                    this.winningHandId = h10_card.score > h11_card.score ? 2 : 3;
+                let cardA = c10;
+                let cardB = c11;
+                let handA = 2;
+                let handB = 3;
+
+                // REMATCH LOOP
+                while (cardA.score === cardB.score) {
+                    console.log(`[CardBet] Rematch for hands ${handA} & ${handB}`);
+                    cardA = drawCard();
+                    cardB = drawCard();
+                    this.hands[handA].cards.push(cardA);
+                    this.hands[handB].cards.push(cardB);
                 }
+                this.winningHandId = cardA.score > cardB.score ? handA : handB;
             }
-            
-            console.log(`[CardBet] Logic Winner: ${this.winningHandId} (Top: ${topTotal} vs Bottom: ${bottomTotal})`);
+            console.log(`[CardBet] RNG Winner: ${this.winningHandId} (Total Top: ${topTotal}, Bottom: ${bottomTotal})`);
         }
 
         this.hands.forEach(h => h.revealed = true);
