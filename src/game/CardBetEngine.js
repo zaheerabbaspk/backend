@@ -5,6 +5,7 @@ const GameState = {
 };
 
 const supabase = require('../config/supabase');
+const crypto = require('crypto');
 
 class CardBetEngine {
     constructor() {
@@ -22,6 +23,10 @@ class CardBetEngine {
         this.winningHandId = null;
         this.manualWinner = null;
         this.countdownInterval = null;
+
+        // RNG Logic
+        this.serverSeed = crypto.randomBytes(32).toString('hex');
+        this.nonce = 0;
     }
 
     setIo(io) {
@@ -84,11 +89,19 @@ class CardBetEngine {
                     .update({ manual_winner_id: null })
                     .eq('game_name', 'card-bet');
             } else {
-                // Random if not manual
-                this.winningHandId = Math.floor(Math.random() * 4);
+                // --- Provably Fair RNG Decision ---
+                this.nonce++;
+                const hash = crypto.createHmac('sha256', this.serverSeed)
+                    .update(this.nonce.toString())
+                    .digest('hex');
+                
+                // Use the first 8 characters of hash to get a random number between 0-3
+                const hashInt = parseInt(hash.substring(0, 8), 16);
+                this.winningHandId = hashInt % 4; // Fair distribution across 4 hands
+                console.log(`[CardBet] RNG Winner decided: ${this.winningHandId} (Nonce: ${this.nonce})`);
             }
         } catch (err) {
-            console.error('[CardBet] Error fetching manual winner:', err);
+            console.error('[CardBet] Error in RNG/Supabase logic:', err);
             this.winningHandId = Math.floor(Math.random() * 4);
         }
 
