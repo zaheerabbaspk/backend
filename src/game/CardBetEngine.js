@@ -141,41 +141,32 @@ class CardBetEngine {
             });
         } else {
             // PROBABILITY / RNG LOGIC
-            // 1. Initial draw: 1 card for each
+            // 1. Draw exactly 1 card for each hand
             this.hands.forEach(h => {
-                const card = drawCard();
-                h.cards = [card];
+                h.cards = [drawCard()];
             });
 
-            const calculateTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
+            // 2. Determine Winner using Rank + Suit Priority
+            // Priority: Spades (3) > Hearts (2) > Diamonds (1) > Clubs (0)
+            const suitOrder = { 'spades': 3, 'hearts': 2, 'diamonds': 1, 'clubs': 0 };
+            
+            let bestHandIdx = 0;
+            for (let i = 1; i < this.hands.length; i++) {
+                const current = this.hands[i].cards[0];
+                const best = this.hands[bestHandIdx].cards[0];
 
-            // 2. Targeted Rematch Loop
-            let winnerFound = false;
-            while (!winnerFound) {
-                // Get all current totals
-                const totals = this.hands.map((_, idx) => calculateTotal(idx));
-                const maxScore = Math.max(...totals);
-                
-                // Find how many hands have this max score
-                const topHands = [];
-                totals.forEach((score, idx) => {
-                    if (score === maxScore) topHands.push(idx);
-                });
-
-                if (topHands.length === 1) {
-                    // Unique winner!
-                    this.winningHandId = topHands[0];
-                    winnerFound = true;
-                } else {
-                    // TIE: Draw one more card ONLY for the tied hands
-                    console.log(`[CardBet] Targeted Rematch for hands: ${topHands.join(', ')} at score ${maxScore}`);
-                    topHands.forEach(idx => {
-                        this.hands[idx].cards.push(drawCard());
-                    });
+                if (current.score > best.score) {
+                    bestHandIdx = i;
+                } else if (current.score === best.score) {
+                    // Tie in Rank -> Check Suit
+                    if (suitOrder[current.suit] > suitOrder[best.suit]) {
+                        bestHandIdx = i;
+                    }
                 }
             }
-            
-            console.log(`[CardBet] Final RNG Winner: ${this.winningHandId} (Totals: ${this.hands.map((_, i) => calculateTotal(i)).join(', ')})`);
+
+            this.winningHandId = bestHandIdx;
+            console.log(`[CardBet] Winner: ${this.winningHandId} (${this.hands[bestHandIdx].cards[0].value} of ${this.hands[bestHandIdx].cards[0].suit})`);
         }
 
         this.hands.forEach(h => h.revealed = true);
