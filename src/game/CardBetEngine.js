@@ -100,7 +100,7 @@ class CardBetEngine {
 
         // --- Card Generation Logic ---
         const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-        const values = ['8', '9', '10', 'J', 'Q', 'K']; // No Ace, King is High
+        const values = ['6', '7', '8', '9', '10', 'J', 'Q', 'K']; // Added 6 and 7 as requested
         const getCardScore = (val) => values.indexOf(val);
 
         const usedCards = new Set();
