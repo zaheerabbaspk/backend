@@ -12,8 +12,8 @@ class CardBetEngine {
         this.state = GameState.FINISHED;
         this.timeLeft = 0;
         this.io = null;
-        this.waitingTime = 10000; // 10 seconds betting phase
-        this.revealTime = 40000;   // 40 seconds to show cards + suspension
+        this.waitingTime = 15000; // 15 seconds betting phase
+        this.revealTime = 15000;   // 15 seconds to show cards + suspension (Faster cycle)
         this.hands = [
             { id: 0, name: '8', backOdds: 3.8, layOdds: 3.9, revealed: false, cards: [] },
             { id: 1, name: '9', backOdds: 3.0, layOdds: 3.1, revealed: false, cards: [] },
