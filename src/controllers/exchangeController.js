@@ -1,18 +1,33 @@
 const exchangeService = require('../services/ExchangeService');
+const cricketApi = require('../services/CricketApiService');
 
 const exchangeController = {
-    // Get all matches with runners
+    // Get all matches with runners (live IPL + custom DB markets)
     getMatches: async (req, res) => {
         try {
             const markets = await exchangeService.getMarkets();
-            res.json({ success: true, data: markets });
+            const lastFetched = cricketApi.getLastFetchTime();
+            const liveCount = markets.filter(m => m.status === 'LIVE').length;
+
+            res.json({
+                success: true,
+                data: markets,
+                meta: {
+                    total: markets.length,
+                    live: liveCount,
+                    upcoming: markets.filter(m => m.status === 'OPEN').length,
+                    lastFetched: lastFetched ? lastFetched.toISOString() : null,
+                    source: (process.env.CRICAPI_KEY && process.env.CRICAPI_KEY !== 'YOUR_CRICAPI_KEY_HERE')
+                        ? 'CricAPI Live' : 'Mock Data'
+                }
+            });
         } catch (error) {
             console.error('[ExchangeController] getMatches error:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     },
 
-    // Get live odds for a single market (aggregates order books)
+    // Get live odds for a single market
     getMarketOdds: async (req, res) => {
         try {
             const { marketId } = req.params;
@@ -34,7 +49,6 @@ const exchangeController = {
             if (!userId || !marketId || !runnerId || !type || !price || !size) {
                 return res.status(400).json({ success: false, error: 'Missing required betting parameters' });
             }
-
             const bet = await exchangeService.placeBet(userId, marketId, runnerId, type, price, size);
             res.json({ success: true, data: bet });
         } catch (error) {
@@ -50,7 +64,6 @@ const exchangeController = {
             if (!userId || !betId) {
                 return res.status(400).json({ success: false, error: 'Missing userId or betId' });
             }
-
             const result = await exchangeService.cancelBet(userId, betId);
             res.json(result);
         } catch (error) {
@@ -71,6 +84,17 @@ const exchangeController = {
         }
     },
 
+    // Admin: Force refresh live match data from CricAPI
+    forceRefresh: async (req, res) => {
+        try {
+            const result = await cricketApi.forceRefresh();
+            res.json({ success: true, ...result });
+        } catch (error) {
+            console.error('[ExchangeController] forceRefresh error:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
     // Admin: Create new market
     createMarket: async (req, res) => {
         try {
@@ -78,7 +102,6 @@ const exchangeController = {
             if (!marketId || !sport || !tournament || !runners || !Array.isArray(runners)) {
                 return res.status(400).json({ success: false, error: 'Invalid market creation parameters' });
             }
-
             const market = await exchangeService.createMarket(marketId, sport, tournament, runners);
             res.json({ success: true, data: market });
         } catch (error) {
@@ -90,11 +113,10 @@ const exchangeController = {
     // Admin: Suspend or unsuspend market
     suspendMarket: async (req, res) => {
         try {
-            const { marketId, status } = req.body; // 'SUSPENDED' or 'OPEN' or 'CLOSED'
+            const { marketId, status } = req.body;
             if (!marketId || !status) {
                 return res.status(400).json({ success: false, error: 'Missing parameters' });
             }
-
             const result = await exchangeService.suspendMarket(marketId, status);
             res.json(result);
         } catch (error) {
@@ -110,7 +132,6 @@ const exchangeController = {
             if (!marketId || !winnerRunnerId) {
                 return res.status(400).json({ success: false, error: 'Missing marketId or winnerRunnerId' });
             }
-
             const result = await exchangeService.settleMarket(marketId, winnerRunnerId);
             res.json(result);
         } catch (error) {
