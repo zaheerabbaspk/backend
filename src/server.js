@@ -9,6 +9,8 @@ const cardBetEngine = require('./game/CardBetEngine');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const exchangeRoutes = require('./routes/exchangeRoutes');
+const exchangeService = require('./services/ExchangeService');
 
 const app = express();
 const server = http.createServer(app);
@@ -35,9 +37,11 @@ app.get('/health', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/exchange', exchangeRoutes);
 
 // Initialize Sockets
 socketManager(io);
+exchangeService.setIo(io);
 
 // Initialize Game Engines
 gameEngine.setIo(io);

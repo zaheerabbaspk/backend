@@ -8,11 +8,17 @@ module.exports = (io) => {
 
         // In production, you might check for a token or specific namespace
         const isAdmin = socket.handshake.query.admin === 'true';
+        const userId = socket.handshake.query.userId;
 
         const broadcastStats = () => {
             const playersRoom = io.sockets.adapter.rooms.get('players');
             const activePlayers = playersRoom ? playersRoom.size : 0;
             io.emit('gameStats', { activePlayers });
+        }
+
+        if (userId) {
+            socket.join(userId);
+            console.log(`[Socket] User ${userId} joined private socket room.`);
         }
 
         if (isAdmin) {
