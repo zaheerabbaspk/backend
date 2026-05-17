@@ -272,70 +272,40 @@ class CricketApiService {
         try {
             console.log('[CricketAPI] Fetching live matches from CricAPI...');
 
-            // Fetch current matches (contains live + upcoming)
-            const [currentRes, scoreRes] = await Promise.all([
-                axios.get(`${BASE_URL}/currentMatches`, {
-                    params: { apikey: this.apiKey, offset: 0 },
-                    timeout: 8000
-                }),
-                axios.get(`${BASE_URL}/cricScore`, {
-                    params: { apikey: this.apiKey },
-                    timeout: 8000
-                }).catch(() => ({ data: { data: [] } }))
-            ]);
+            const response = await axios.get(`${BASE_URL}/currentMatches`, {
+                params: { apikey: this.apiKey, offset: 0 },
+                timeout: 10000
+            });
 
-            if (!currentRes.data || currentRes.data.status !== 'success') {
-                throw new Error(`CricAPI error: ${currentRes.data?.reason || 'unknown'}`);
+            if (!response.data || response.data.status !== 'success') {
+                throw new Error(`CricAPI error: ${response.data?.reason || 'unknown'}`);
             }
 
-            const allMatches = currentRes.data.data || [];
-            const scoreData = scoreRes.data?.data || [];
+            const allMatches = response.data.data || [];
 
-            // Build score lookup by match id
-            const scoreLookup = {};
-            scoreData.forEach(s => { if (s.id) scoreLookup[s.id] = s; });
+            // Filter: only matches with 2+ teams
+            const cricketMatches = allMatches.filter(m => m.teams && m.teams.length >= 2);
 
-            // Filter: IPL, T20I, or any cricket match with teams
-            const iplMatches = allMatches.filter(m => {
-                const name = (m.name || '').toLowerCase();
-                const series = (m.series_id || '').toLowerCase();
-                const isIPL = name.includes('ipl') ||
-                               name.includes('indian premier') ||
-                               series.includes('ipl');
-                const isCricket = m.sport_id === 'cricket' || !m.sport_id;
-                const hasTeams = m.teams && m.teams.length >= 2;
-
-                // If no IPL match found, show all cricket matches
-                return isCricket && hasTeams;
+            // Sort: in-progress live first, then ended today, then older
+            cricketMatches.sort((a, b) => {
+                const aLive  = a.matchStarted && !a.matchEnded ? 0 : 1;
+                const bLive  = b.matchStarted && !b.matchEnded ? 0 : 1;
+                if (aLive !== bLive) return aLive - bLive;
+                // then sort by date descending (most recent first)
+                return new Date(b.dateTimeGMT || 0) - new Date(a.dateTimeGMT || 0);
             });
 
-            // Sort: live first, then upcoming
-            iplMatches.sort((a, b) => {
-                const aLive = a.matchStarted && !a.matchEnded ? 0 : 1;
-                const bLive = b.matchStarted && !b.matchEnded ? 0 : 1;
-                return aLive - bLive;
-            });
+            // Take top 15 matches
+            const topMatches = cricketMatches.slice(0, 15);
+            const markets    = topMatches.map(m => mapCricApiMatchToMarket(m));
 
-            // Take top 10 matches
-            const topMatches = iplMatches.slice(0, 10);
-
-            // Merge score data and map to market format
-            const markets = topMatches.map(m => {
-                // Merge live score if available
-                const liveScore = scoreLookup[m.id];
-                if (liveScore && liveScore.score) {
-                    m.score = liveScore.score;
-                }
-                return mapCricApiMatchToMarket(m);
-            });
-
-            // If no matches found, keep fallback mock data
             if (markets.length === 0) {
-                console.warn('[CricketAPI] No live cricket matches found. Showing mock IPL data.');
+                console.warn('[CricketAPI] No matches found. Showing mock IPL data.');
                 this.cache.liveMatches = MOCK_IPL_MARKETS;
             } else {
                 this.cache.liveMatches = markets;
-                console.log(`[CricketAPI] Loaded ${markets.length} cricket markets (${markets.filter(m => m.status === 'LIVE').length} live)`);
+                const liveCount = markets.filter(m => m.status === 'LIVE').length;
+                console.log(`[CricketAPI] ✅ Loaded ${markets.length} cricket markets (${liveCount} LIVE)`);
             }
 
             this.cache.lastFetched = new Date();
@@ -343,15 +313,13 @@ class CricketApiService {
             // Push real-time update to connected clients
             if (this.io) {
                 this.io.emit('markets_live_update', {
-                    count: this.cache.liveMatches.length,
+                    count:     this.cache.liveMatches.length,
                     liveCount: this.cache.liveMatches.filter(m => m.status === 'LIVE').length
                 });
             }
 
         } catch (error) {
             console.error('[CricketAPI] Fetch error:', error.message);
-
-            // If first time and no cache, use fallback
             if (this.cache.liveMatches.length === 0) {
                 console.warn('[CricketAPI] Falling back to mock IPL data.');
                 this.cache.liveMatches = MOCK_IPL_MARKETS;
