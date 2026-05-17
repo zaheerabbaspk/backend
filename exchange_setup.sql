@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.exchange_runners (
 -- 3. Create exchange_bets table
 CREATE TABLE IF NOT EXISTS public.exchange_bets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   market_id TEXT REFERENCES public.exchange_markets(id) ON DELETE CASCADE,
   runner_id TEXT REFERENCES public.exchange_runners(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('BACK', 'LAY')),
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.exchange_bets (
 -- 4. Create exchange_exposures table
 CREATE TABLE IF NOT EXISTS public.exchange_exposures (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   market_id TEXT REFERENCES public.exchange_markets(id) ON DELETE CASCADE,
   exposure_amount DECIMAL(12, 2) DEFAULT 0.00 NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.exchange_exposures (
 -- 5. Create exchange_transactions table
 CREATE TABLE IF NOT EXISTS public.exchange_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   amount DECIMAL(12, 2) NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('place_bet', 'cancel_bet', 'bet_matched', 'settlement_win', 'settlement_lose', 'commission')),
   reference_id TEXT, -- bet id or market id
