@@ -1,4 +1,5 @@
 const supabase = require('../config/supabase');
+const cricketApi = require('./CricketApiService');
 
 class ExchangeService {
     constructor() {
@@ -40,7 +41,11 @@ class ExchangeService {
 
     setIo(io) {
         this.io = io;
+        // Also pass socket to cricket api so it can push live match updates
+        cricketApi.setIo(io);
     }
+
+    // (setIo already defined above with cricketApi wiring)
 
     // Check if a table exists in Supabase, else use fallback
     async executeDbQuery(tableName, dbAction, fallbackAction) {
@@ -61,22 +66,36 @@ class ExchangeService {
     // ==========================================
 
     async getMarkets() {
-        return this.executeDbQuery(
-            'exchange_markets',
-            async () => {
-                const { data: markets, error } = await supabase
-                    .from('exchange_markets')
-                    .select('*, runners:exchange_runners(*)');
-                if (error) throw error;
-                return markets;
-            },
-            () => {
-                return this.fallbackStore.markets;
+        // Primary: Live data from CricAPI (always returns data — real or mock)
+        const liveMarkets = cricketApi.getMarkets();
+
+        // Secondary: Check if admin created any custom markets in Supabase
+        // and merge them in so both live and custom markets appear together
+        try {
+            const { data: dbMarkets, error } = await supabase
+                .from('exchange_markets')
+                .select('*, runners:exchange_runners(*)')
+                .not('status', 'eq', 'CLOSED');
+
+            if (!error && dbMarkets && dbMarkets.length > 0) {
+                // Merge: avoid duplicates by id
+                const liveIds = new Set(liveMarkets.map(m => m.id));
+                const dbOnly = dbMarkets.filter(m => !liveIds.has(m.id));
+                return [...liveMarkets, ...dbOnly];
             }
-        );
+        } catch (e) {
+            // Supabase tables may not exist yet — that's fine
+        }
+
+        return liveMarkets;
     }
 
     async getMarketById(marketId) {
+        // First check live cricket cache (fast)
+        const liveMatch = cricketApi.getMarketById(marketId);
+        if (liveMatch) return liveMatch;
+
+        // Then check full merged list (includes DB custom markets)
         const markets = await this.getMarkets();
         return markets.find(m => m.id === marketId) || null;
     }
