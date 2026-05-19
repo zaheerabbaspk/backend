@@ -9,7 +9,8 @@ module.exports = (io, socket) => {
         state: gameEngine.state,
         multiplier: parseFloat(gameEngine.multiplier.toFixed(2)),
         timeLeft: gameEngine.timeLeft,
-        roundId: gameEngine.roundId || 'round_' + Date.now()
+        roundId: gameEngine.roundId || 'round_' + Date.now(),
+        history: gameEngine.history || []
     });
 
     // Send current CardBet state

@@ -16,6 +16,7 @@ class GameEngine {
         this.countdownInterval = null;
         this.serverSeed = crypto.randomBytes(32).toString('hex');
         this.nonce = 0;
+        this.history = []; // Track past crash points
     }
 
     setIo(io) {
@@ -111,6 +112,13 @@ class GameEngine {
                 roundId: 'round_' + Date.now() // temporary round ID
             });
         }
+        
+        // Add to history
+        this.history.unshift(parseFloat(this.multiplier.toFixed(2)));
+        if (this.history.length > 20) {
+            this.history.pop();
+        }
+
         this.broadcastState();
 
         setTimeout(() => this.startWaiting(), this.crashedTime);
@@ -128,7 +136,8 @@ class GameEngine {
                 state: this.state,
                 multiplier: parseFloat(this.multiplier.toFixed(2)),
                 timeLeft: this.timeLeft,
-                roundId: 'round_' + Date.now() // temporary round ID
+                roundId: 'round_' + Date.now(), // temporary round ID
+                history: this.history
             });
         }
     }
