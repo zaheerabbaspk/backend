@@ -15,10 +15,10 @@ class CardBetEngine {
         this.waitingTime = 15000; // 15 seconds betting phase
         this.revealTime = 15000;   // 15 seconds to show cards + suspension (Faster cycle)
         this.hands = [
-            { id: 0, name: '8', backOdds: 3.8, layOdds: 3.9, revealed: false, cards: [] },
-            { id: 1, name: '9', backOdds: 3.0, layOdds: 3.1, revealed: false, cards: [] },
-            { id: 2, name: '10', backOdds: 3.0, layOdds: 3.1, revealed: false, cards: [] },
-            { id: 3, name: '11', backOdds: 7.6, layOdds: 7.7, revealed: false, cards: [] }
+            { id: 0, name: '8', backOdds: 12.2, layOdds: 13.7, revealed: false, cards: [] },
+            { id: 1, name: '9', backOdds: 6.0, layOdds: 6.5, revealed: false, cards: [] },
+            { id: 2, name: '10', backOdds: 3.2, layOdds: 3.5, revealed: false, cards: [] },
+            { id: 3, name: '11', backOdds: 2.1, layOdds: 2.2, revealed: false, cards: [] }
         ];
         this.winningHandId = null;
         this.manualWinner = null;
@@ -126,19 +126,51 @@ class CardBetEngine {
         // --- Execute Logic ---
         if (manualWinnerId !== null) {
             this.winningHandId = manualWinnerId;
-            // For manual winner, we just give them a high card and others lower ones
-            this.hands.forEach((h, idx) => {
-                let card = drawCard();
-                if (idx === this.winningHandId) {
-                    const highCards = ['J', 'Q', 'K'];
-                    const val = highCards[Math.floor(Math.random() * highCards.length)];
-                    h.cards = [{ value: val, suit: card.suit, score: getCardScore(val) }];
-                } else {
-                    const lowCards = ['6', '7', '8'];
-                    const val = lowCards[Math.floor(Math.random() * lowCards.length)];
-                    h.cards = [{ value: val, suit: card.suit, score: getCardScore(val) }];
+            const baseScores = [8, 9, 10, 11];
+            
+            let attempts = 0;
+            let success = false;
+            
+            while (!success && attempts < 100) {
+                attempts++;
+                usedCards.clear();
+                
+                // Draw 1 card for each hand
+                this.hands.forEach((h, idx) => {
+                    h.cards = [drawCard()];
+                });
+                
+                const calculateTotal = (hIdx) => baseScores[hIdx] + this.hands[hIdx].cards[0].score;
+                const winnerTotal = calculateTotal(this.winningHandId);
+                
+                // Check if winnerTotal is strictly greater than all others
+                let isWinnerHighest = true;
+                for (let idx = 0; idx < 4; idx++) {
+                    if (idx !== this.winningHandId) {
+                        if (calculateTotal(idx) >= winnerTotal) {
+                            isWinnerHighest = false;
+                            break;
+                        }
+                    }
                 }
-            });
+                
+                if (isWinnerHighest) {
+                    success = true;
+                }
+            }
+            
+            // Fallback just in case (highly unlikely to fail in 100 attempts, but good practice)
+            if (!success) {
+                console.log("[CardBet] Manual winner card generation fallback triggered");
+                this.hands.forEach((h, idx) => {
+                    const suit = suits[Math.floor(Math.random() * suits.length)];
+                    if (idx === this.winningHandId) {
+                        h.cards = [{ value: 'K', suit, score: 13 }];
+                    } else {
+                        h.cards = [{ value: '6', suit, score: 6 }];
+                    }
+                });
+            }
         } else {
             // PROBABILITY / RNG LOGIC
             // 1. Initial draw: 1 card for each
@@ -147,7 +179,8 @@ class CardBetEngine {
                 h.cards = [card];
             });
 
-            const calculateTotal = (hIdx) => this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
+            const baseScores = [8, 9, 10, 11];
+            const calculateTotal = (hIdx) => baseScores[hIdx] + this.hands[hIdx].cards.reduce((sum, c) => sum + c.score, 0);
 
             // 2. Targeted Rematch Loop
             let winnerFound = false;
