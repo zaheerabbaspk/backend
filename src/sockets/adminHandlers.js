@@ -10,6 +10,12 @@ module.exports = (io, socket) => {
         gameEngine.triggerManualCrash(targetMultiplier);
     });
 
+    socket.on('setCrashTarget', (data) => {
+        const targetMultiplier = data?.targetMultiplier || null;
+        console.log('Admin setting crash target for next round:', targetMultiplier);
+        gameEngine.setCrashTarget(targetMultiplier);
+    });
+
     socket.on('cardBet_SetWinner', (data) => {
         console.log('Admin setting card bet winner:', data.handId);
         cardBetEngine.setManualWinner(data.handId);

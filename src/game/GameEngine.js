@@ -58,11 +58,11 @@ class GameEngine {
         this.state = GameState.WAITING;
         this.multiplier = 1.00;
         this.manualCrash = false;
-        this.targetCrashMultiplier = null; // Reset manual crash target
+        // Don't reset targetCrashMultiplier - let admin set it during waiting phase
         this.crashPoint = parseFloat(this.generateCrashPoint());
         this.timeLeft = Math.floor(this.waitingTime / 1000);
 
-        console.log(`[GameEngine] Round waiting. Next crash point: ${this.crashPoint}`);
+        console.log(`[GameEngine] Round waiting. Next crash point: ${this.crashPoint}${this.targetCrashMultiplier ? ` (Admin target: ${this.targetCrashMultiplier}x)` : ''}`);
 
         this.broadcastState();
 
@@ -125,6 +125,9 @@ class GameEngine {
             this.history.pop();
         }
 
+        // Reset manual crash target after crash
+        this.targetCrashMultiplier = null;
+
         this.broadcastState();
 
         setTimeout(() => this.startWaiting(), this.crashedTime);
@@ -141,6 +144,13 @@ class GameEngine {
                 this.manualCrash = true;
                 console.log(`[GameEngine] Immediate manual crash triggered`);
             }
+        }
+    }
+
+    setCrashTarget(targetMultiplier) {
+        if (targetMultiplier && targetMultiplier > 1.00) {
+            this.targetCrashMultiplier = targetMultiplier;
+            console.log(`[GameEngine] Crash target set for next round: ${targetMultiplier}x`);
         }
     }
 
