@@ -94,15 +94,22 @@ class GameEngine {
 
             this.broadcastMultiplier();
 
-            // Check if should crash: either reached target crash point, manual immediate crash, or reached random crash point
-            if (this.targetCrashMultiplier && this.multiplier >= this.targetCrashMultiplier) {
-                this.multiplier = this.targetCrashMultiplier; // Snap to exact target
+            // Check if should crash
+            if (this.manualCrash) {
+                // Immediate manual crash
                 this.crash();
-            } else if (this.manualCrash || this.multiplier >= this.crashPoint) {
-                if (!this.manualCrash) {
-                    this.multiplier = this.crashPoint; // Snap to exact result
+            } else if (this.targetCrashMultiplier) {
+                // Admin set target - crash at target (ignore RNG)
+                if (this.multiplier >= this.targetCrashMultiplier) {
+                    this.multiplier = this.targetCrashMultiplier; // Snap to exact target
+                    this.crash();
                 }
-                this.crash();
+            } else {
+                // No target set - use normal RNG crash point
+                if (this.multiplier >= this.crashPoint) {
+                    this.multiplier = this.crashPoint; // Snap to exact result
+                    this.crash();
+                }
             }
         }, 30);
     }
