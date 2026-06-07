@@ -4,9 +4,10 @@ const cardBetEngine = require('../game/CardBetEngine');
 module.exports = (io, socket) => {
     console.log(`Admin connected: ${socket.id}`);
 
-    socket.on('manualCrash', () => {
-        console.log('Admin triggered manual crash');
-        gameEngine.triggerManualCrash();
+    socket.on('manualCrash', (data) => {
+        const targetMultiplier = data?.targetMultiplier || null;
+        console.log('Admin triggered manual crash', targetMultiplier ? `at ${targetMultiplier}x` : 'immediately');
+        gameEngine.triggerManualCrash(targetMultiplier);
     });
 
     socket.on('cardBet_SetWinner', (data) => {

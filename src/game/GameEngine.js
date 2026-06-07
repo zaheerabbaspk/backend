@@ -12,6 +12,7 @@ class GameEngine {
         this.waitingTime = 5000;  // 5 seconds
         this.crashedTime = 5000;  // 5 seconds
         this.manualCrash = false;
+        this.targetCrashMultiplier = null; // Admin-specified crash point
         this.timeLeft = 0;
         this.countdownInterval = null;
         this.serverSeed = crypto.randomBytes(32).toString('hex');
@@ -57,6 +58,7 @@ class GameEngine {
         this.state = GameState.WAITING;
         this.multiplier = 1.00;
         this.manualCrash = false;
+        this.targetCrashMultiplier = null; // Reset manual crash target
         this.crashPoint = parseFloat(this.generateCrashPoint());
         this.timeLeft = Math.floor(this.waitingTime / 1000);
 
@@ -92,7 +94,11 @@ class GameEngine {
 
             this.broadcastMultiplier();
 
-            if (this.manualCrash || this.multiplier >= this.crashPoint) {
+            // Check if should crash: either reached target crash point, manual immediate crash, or reached random crash point
+            if (this.targetCrashMultiplier && this.multiplier >= this.targetCrashMultiplier) {
+                this.multiplier = this.targetCrashMultiplier; // Snap to exact target
+                this.crash();
+            } else if (this.manualCrash || this.multiplier >= this.crashPoint) {
                 if (!this.manualCrash) {
                     this.multiplier = this.crashPoint; // Snap to exact result
                 }
@@ -124,9 +130,17 @@ class GameEngine {
         setTimeout(() => this.startWaiting(), this.crashedTime);
     }
 
-    triggerManualCrash() {
+    triggerManualCrash(targetMultiplier = null) {
         if (this.state === GameState.RUNNING) {
-            this.manualCrash = true;
+            if (targetMultiplier && targetMultiplier > this.multiplier) {
+                // Set target crash point for future crash
+                this.targetCrashMultiplier = targetMultiplier;
+                console.log(`[GameEngine] Manual crash set for ${targetMultiplier}x`);
+            } else {
+                // Immediate crash
+                this.manualCrash = true;
+                console.log(`[GameEngine] Immediate manual crash triggered`);
+            }
         }
     }
 
