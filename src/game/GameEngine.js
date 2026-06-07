@@ -139,8 +139,12 @@ class GameEngine {
                 // Set target crash point for future crash
                 this.targetCrashMultiplier = targetMultiplier;
                 console.log(`[GameEngine] Manual crash set for ${targetMultiplier}x`);
+            } else if (targetMultiplier && targetMultiplier <= this.multiplier) {
+                // Target is lower than current multiplier - can't crash at that point
+                console.log(`[GameEngine] Cannot crash at ${targetMultiplier}x - already at ${this.multiplier.toFixed(2)}x. Crashing immediately.`);
+                this.manualCrash = true;
             } else {
-                // Immediate crash
+                // Immediate crash (no target specified)
                 this.manualCrash = true;
                 console.log(`[GameEngine] Immediate manual crash triggered`);
             }
